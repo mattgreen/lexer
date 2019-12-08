@@ -17,7 +17,7 @@ pub enum Next<T> {
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    UnexpectedChar,
+    UnexpectedChar(char),
 }
 
 impl<'input, T> Lexer<'input, T> {
@@ -36,13 +36,22 @@ impl<'input, T> Lexer<'input, T> {
     pub fn next_token(&mut self) -> Next<T> {
         while !self.eof() {
             let input = &self.input[self.offset..];
+
+            let c = input.chars().nth(0).unwrap();
+            if self.lexicon.ignore_chars.contains(&c) {
+                self.offset += 1;
+                continue;
+            }
+
             let matching_rule = self.lexicon.rules
                 .iter()
                 .filter_map(|r| r.match_len(input).map(|len| (r, len)))
                 .nth(0);
 
             if matching_rule.is_none() {
-                return Next::Error(Error::UnexpectedChar);
+                self.offset += 1;
+
+                return Next::Error(Error::UnexpectedChar(c));
             }
 
             let (rule, match_len) = matching_rule.unwrap();

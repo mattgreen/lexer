@@ -1,11 +1,15 @@
+use std::collections::HashSet;
+
 use regex::Regex;
 
 pub struct Lexicon<'input, T> {
+    pub(crate) ignore_chars: HashSet<char>,
     pub(crate) rules: Vec<Rule<'input, T>>,
 }
 
 #[derive(Default)]
 pub struct LexiconBuilder<'input, T> {
+    ignore_chars: HashSet<char>,
     rules: Vec<Rule<'input, T>>,
 }
 
@@ -23,14 +27,20 @@ pub enum Error {
 
 impl<'input, T> LexiconBuilder<'input, T> {
     pub fn new() -> Self {
-        Self { rules: vec![] }
+        Self { ignore_chars: HashSet::new(), rules: vec![] }
     }
 
     pub fn build(self) -> Lexicon<'input, T> {
-        Lexicon { rules: self.rules }
+        Lexicon { ignore_chars: self.ignore_chars, rules: self.rules }
     }
 
-    pub fn ignore(mut self, pattern: &str) -> Result<Self, Error> {
+    pub fn ignore_chars(mut self, chars: &str) -> Self {
+        self.ignore_chars.extend(chars.chars());
+
+        self
+    }
+
+    pub fn ignore_regex(mut self, pattern: &str) -> Result<Self, Error> {
         let anchored = Self::anchor(pattern);
         let regex = Regex::new(&anchored).map_err(Error::Regex)?;
 

@@ -17,8 +17,7 @@ mod tests {
 
     fn simple_lexicon<'input>() -> Lexicon<'input, Token<'input>> {
         LexiconBuilder::new()
-            .ignore(r" +").unwrap()
-            .ignore("'").unwrap()
+            .ignore_chars(" ")
             .token(r"[a-zA-Z]+", Token::Name).unwrap()
             .token(r"[0-9]+", Token::Int).unwrap()
             .build()
@@ -29,6 +28,24 @@ mod tests {
         let mut lexer = Lexer::new(simple_lexicon(), "");
 
         assert_eq!(lexer.next_token(), Next::End);
+        assert_eq!(lexer.next_token(), Next::End);
+    }
+
+    #[test]
+    fn invalid() {
+        let mut lexer = Lexer::new(simple_lexicon(), "a b 1 -     ");
+
+        assert_eq!(lexer.next_token(), Next::Token(Token::Name("a")));
+        assert_eq!(lexer.next_token(), Next::Token(Token::Name("b")));
+        assert_eq!(lexer.next_token(), Next::Token(Token::Int("1")));
+        assert_eq!(lexer.next_token(), Next::Error(Error::UnexpectedChar('-')));
+        assert_eq!(lexer.next_token(), Next::End);
+    }
+
+    #[test]
+    fn whitespace() {
+        let mut lexer = Lexer::new(simple_lexicon(), "       ");
+
         assert_eq!(lexer.next_token(), Next::End);
     }
 
