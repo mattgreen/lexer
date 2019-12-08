@@ -1,9 +1,10 @@
-use crate::Lexicon;
+use regex::Regex;
 
-use crate::lexicon::Rule;
+use crate::Lexicon;
 
 pub struct Lexer<'input, T> {
     lexicon: Lexicon<'input, T>,
+    patterns: Regex,
     input: &'input str,
     offset: usize,
 }
@@ -22,8 +23,17 @@ pub enum Error {
 
 impl<'input, T> Lexer<'input, T> {
     pub fn new(lexicon: Lexicon<'input, T>, input: &'input str) -> Self {
+        let pattern = lexicon.rules
+            .iter()
+            .map(|r| format!("(\\A{})", r.regex.as_str()))
+            .collect::<Vec<String>>()
+            .join("|");
+
+        let patterns = Regex::new(&pattern).unwrap();
+
         Self {
             lexicon,
+            patterns,
             input,
             offset: 0,
         }
@@ -43,32 +53,35 @@ impl<'input, T> Lexer<'input, T> {
                 continue;
             }
 
-            let matching_rule = self.lexicon.rules
-                .iter()
-                .filter_map(|r| r.match_len(input).map(|len| (r, len)))
-                .nth(0);
-
-            if matching_rule.is_none() {
+            let found = self.patterns.captures(input);
+            if found.is_none() {
                 self.offset += 1;
 
                 return Next::Error(Error::UnexpectedChar(c));
             }
 
-            let (rule, match_len) = matching_rule.unwrap();
+            let captures = found.unwrap();
 
-            let token = match rule {
-                Rule::Ignore(_) => None,
-                Rule::Token(_, handler) => {
-                    let slice = &input[..match_len];
+            let mut rule = &self.lexicon.rules[0];
+            let mut match_len = 0;
 
-                    Some(Next::Token(handler(slice)))
+            for i in 1..=self.lexicon.rules.len() {
+                if let Some(m) = captures.get(i) {
+                    let m_len = m.end() - m.start();
+
+                    if m_len > match_len {
+                        rule = &self.lexicon.rules[i - 1];
+                        match_len = m_len;
+                    }
                 }
-            };
+            }
+
+            let token = rule.handler.map(|h| h(&input[..match_len]));
 
             self.offset += match_len;
 
             if let Some(t) = token {
-                return t;
+                return Next::Token(t);
             }
         }
 

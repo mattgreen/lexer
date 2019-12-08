@@ -1,8 +1,7 @@
 mod lexicon;
 mod lexer;
 
-pub use crate::lexicon::{Lexicon, LexiconBuilder};
-pub use crate::lexicon::Error as LexiconBuilderError;
+pub use crate::lexicon::{Lexicon, LexiconBuilder, Error as LexiconBuilderError};
 pub use crate::lexer::{Lexer, Next, Error};
 
 #[cfg(test)]
@@ -12,7 +11,7 @@ mod tests {
     #[derive(Debug, PartialEq)]
     enum Token<'input> {
         Int(&'input str),
-        Name(&'input str)
+        Name(&'input str),
     }
 
     fn simple_lexicon<'input>() -> Lexicon<'input, Token<'input>> {
