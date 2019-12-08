@@ -33,7 +33,7 @@ impl<'input, T> Lexer<'input, T> {
         self.offset >= self.input.len()
     }
 
-    pub fn next_token(&mut self) -> Next<T> {
+    pub fn next(&mut self) -> Next<T> {
         while !self.eof() {
             let input = &self.input[self.offset..];
 

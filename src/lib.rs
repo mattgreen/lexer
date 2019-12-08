@@ -27,35 +27,35 @@ mod tests {
     fn empty() {
         let mut lexer = Lexer::new(simple_lexicon(), "");
 
-        assert_eq!(lexer.next_token(), Next::End);
-        assert_eq!(lexer.next_token(), Next::End);
+        assert_eq!(lexer.next(), Next::End);
+        assert_eq!(lexer.next(), Next::End);
     }
 
     #[test]
     fn invalid() {
         let mut lexer = Lexer::new(simple_lexicon(), "a b 1 -     ");
 
-        assert_eq!(lexer.next_token(), Next::Token(Token::Name("a")));
-        assert_eq!(lexer.next_token(), Next::Token(Token::Name("b")));
-        assert_eq!(lexer.next_token(), Next::Token(Token::Int("1")));
-        assert_eq!(lexer.next_token(), Next::Error(Error::UnexpectedChar('-')));
-        assert_eq!(lexer.next_token(), Next::End);
+        assert_eq!(lexer.next(), Next::Token(Token::Name("a")));
+        assert_eq!(lexer.next(), Next::Token(Token::Name("b")));
+        assert_eq!(lexer.next(), Next::Token(Token::Int("1")));
+        assert_eq!(lexer.next(), Next::Error(Error::UnexpectedChar('-')));
+        assert_eq!(lexer.next(), Next::End);
     }
 
     #[test]
     fn whitespace() {
         let mut lexer = Lexer::new(simple_lexicon(), "       ");
 
-        assert_eq!(lexer.next_token(), Next::End);
+        assert_eq!(lexer.next(), Next::End);
     }
 
     #[test]
     fn words() {
         let mut lexer = Lexer::new(simple_lexicon(), "   abc AAaa 123   ");
 
-        assert_eq!(lexer.next_token(), Next::Token(Token::Name("abc")));
-        assert_eq!(lexer.next_token(), Next::Token(Token::Name("AAaa")));
-        assert_eq!(lexer.next_token(), Next::Token(Token::Int("123")));
-        assert_eq!(lexer.next_token(), Next::End);
+        assert_eq!(lexer.next(), Next::Token(Token::Name("abc")));
+        assert_eq!(lexer.next(), Next::Token(Token::Name("AAaa")));
+        assert_eq!(lexer.next(), Next::Token(Token::Int("123")));
+        assert_eq!(lexer.next(), Next::End);
     }
 }
