@@ -1,4 +1,5 @@
 use regex::Regex;
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::Lexicon;
 
@@ -10,15 +11,15 @@ pub struct Lexer<'input, T> {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Next<T> {
+pub enum Next<'input, T> {
     Token(T),
     End,
-    Error(Error),
+    Error(Error<'input>),
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Error {
-    UnexpectedChar(char),
+pub enum Error<'input> {
+    UnexpectedChar(&'input str),
 }
 
 impl<'input, T> Lexer<'input, T> {
@@ -47,17 +48,17 @@ impl<'input, T> Lexer<'input, T> {
         while !self.eof() {
             let input = &self.input[self.offset..];
 
-            let c = input.chars().nth(0).unwrap();
-            if self.lexicon.ignore_chars.contains(&c) {
-                self.offset += 1;
+            let g = input.graphemes(true).nth(0).unwrap();
+            if self.lexicon.ignore_chars.contains(g) {
+                self.offset += g.len();
                 continue;
             }
 
             let found = self.patterns.captures(input);
             if found.is_none() {
-                self.offset += 1;
+                self.offset += g.len();
 
-                return Next::Error(Error::UnexpectedChar(c));
+                return Next::Error(Error::UnexpectedChar(g));
             }
 
             let captures = found.unwrap();

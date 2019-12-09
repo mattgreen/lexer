@@ -37,7 +37,7 @@ mod tests {
         assert_eq!(lexer.next(), Next::Token(Token::Name("a")));
         assert_eq!(lexer.next(), Next::Token(Token::Name("b")));
         assert_eq!(lexer.next(), Next::Token(Token::Int("1")));
-        assert_eq!(lexer.next(), Next::Error(Error::UnexpectedChar('-')));
+        assert_eq!(lexer.next(), Next::Error(Error::UnexpectedChar("-")));
         assert_eq!(lexer.next(), Next::End);
     }
 
