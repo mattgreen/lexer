@@ -3,16 +3,16 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::Lexicon;
 
-pub struct Lexer<'input, T> {
-    lexicon: Lexicon<'input, T>,
+pub struct Lexer<'input> {
+    lexicon: Lexicon,
     patterns: Regex,
     input: &'input str,
     offset: usize,
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Next<'input, T> {
-    Token(T),
+pub enum Next<'input> {
+    Token(usize, &'input str),
     End,
     Error(Error<'input>),
 }
@@ -22,8 +22,8 @@ pub enum Error<'input> {
     UnexpectedChar(&'input str),
 }
 
-impl<'input, T> Lexer<'input, T> {
-    pub fn new(lexicon: Lexicon<'input, T>, input: &'input str) -> Self {
+impl<'input> Lexer<'input> {
+    pub fn new(lexicon: Lexicon, input: &'input str) -> Self {
         let pattern = lexicon.rules
             .iter()
             .map(|r| format!("(\\A{})", r.regex.as_str()))
@@ -44,7 +44,7 @@ impl<'input, T> Lexer<'input, T> {
         self.offset >= self.input.len()
     }
 
-    pub fn next(&mut self) -> Next<T> {
+    pub fn next(&mut self) -> Next {
         while !self.eof() {
             let input = &self.input[self.offset..];
 
@@ -77,13 +77,9 @@ impl<'input, T> Lexer<'input, T> {
                 }
             }
 
-            let token = rule.handler.map(|h| h(&input[..match_len]));
-
             self.offset += match_len;
 
-            if let Some(t) = token {
-                return Next::Token(t);
-            }
+            return Next::Token(rule.id, &input[..match_len]);
         }
 
         Next::End

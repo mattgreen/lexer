@@ -3,35 +3,33 @@ use std::collections::HashSet;
 use regex::Regex;
 use unicode_segmentation::UnicodeSegmentation;
 
-pub struct Lexicon<'input, T> {
+pub struct Lexicon {
     pub(crate) ignore_chars: HashSet<String>,
-    pub(crate) rules: Vec<Rule<'input, T>>,
+    pub(crate) rules: Vec<Rule>,
 }
 
 #[derive(Default)]
-pub struct LexiconBuilder<'input, T> {
+pub struct LexiconBuilder {
     ignore_chars: HashSet<String>,
-    rules: Vec<Rule<'input, T>>,
+    rules: Vec<Rule>,
 }
 
-pub struct Rule<'input, T> {
+pub struct Rule {
+    pub(crate) id: usize,
     pub(crate) regex: Regex,
-    pub(crate) handler: Option<Handler<'input, T>>,
 }
-
-pub type Handler<'input, T> = fn(&'input str) -> T;
 
 #[derive(Debug)]
 pub enum Error {
     Regex(regex::Error),
 }
 
-impl<'input, T> LexiconBuilder<'input, T> {
+impl LexiconBuilder {
     pub fn new() -> Self {
         Self { ignore_chars: HashSet::new(), rules: vec![] }
     }
 
-    pub fn build(self) -> Lexicon<'input, T> {
+    pub fn build(self) -> Lexicon {
         Lexicon { ignore_chars: self.ignore_chars, rules: self.rules }
     }
 
@@ -42,18 +40,10 @@ impl<'input, T> LexiconBuilder<'input, T> {
         self
     }
 
-    pub fn ignore_regex(mut self, pattern: &str) -> Result<Self, Error> {
+    pub fn rule(mut self, id: usize, pattern: &str) -> Result<Self, Error> {
         let regex = Regex::new(pattern).map_err(Error::Regex)?;
 
-        self.rules.push(Rule { regex, handler: None });
-
-        Ok(self)
-    }
-
-    pub fn token(mut self, pattern: &str, handler: Handler<'input, T>) -> Result<Self, Error> {
-        let regex = Regex::new(pattern).map_err(Error::Regex)?;
-
-        self.rules.push(Rule { regex, handler: Some(handler) });
+        self.rules.push(Rule { id, regex });
 
         Ok(self)
     }

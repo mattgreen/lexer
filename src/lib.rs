@@ -8,17 +8,11 @@ pub use crate::lexer::{Lexer, Next, Error};
 mod tests {
     use crate::*;
 
-    #[derive(Debug, PartialEq)]
-    enum Token<'input> {
-        Int(&'input str),
-        Name(&'input str),
-    }
-
-    fn simple_lexicon<'input>() -> Lexicon<'input, Token<'input>> {
+    fn simple_lexicon() -> Lexicon {
         LexiconBuilder::new()
             .ignore_chars(" ")
-            .token(r"[a-zA-Z]+", Token::Name).unwrap()
-            .token(r"[0-9]+", Token::Int).unwrap()
+            .rule(0, r"[a-zA-Z]+").unwrap()
+            .rule(1, r"[0-9]+").unwrap()
             .build()
     }
 
@@ -34,9 +28,9 @@ mod tests {
     fn invalid() {
         let mut lexer = Lexer::new(simple_lexicon(), "a b 1 -     ");
 
-        assert_eq!(lexer.next(), Next::Token(Token::Name("a")));
-        assert_eq!(lexer.next(), Next::Token(Token::Name("b")));
-        assert_eq!(lexer.next(), Next::Token(Token::Int("1")));
+        assert_eq!(lexer.next(), Next::Token(0, "a"));
+        assert_eq!(lexer.next(), Next::Token(0, "b"));
+        assert_eq!(lexer.next(), Next::Token(1, "1"));
         assert_eq!(lexer.next(), Next::Error(Error::UnexpectedChar("-")));
         assert_eq!(lexer.next(), Next::End);
     }
@@ -52,9 +46,9 @@ mod tests {
     fn words() {
         let mut lexer = Lexer::new(simple_lexicon(), "   abc AAaa 123   ");
 
-        assert_eq!(lexer.next(), Next::Token(Token::Name("abc")));
-        assert_eq!(lexer.next(), Next::Token(Token::Name("AAaa")));
-        assert_eq!(lexer.next(), Next::Token(Token::Int("123")));
+        assert_eq!(lexer.next(), Next::Token(0, "abc"));
+        assert_eq!(lexer.next(), Next::Token(0, "AAaa"));
+        assert_eq!(lexer.next(), Next::Token(1, "123"));
         assert_eq!(lexer.next(), Next::End);
     }
 }
