@@ -26,7 +26,7 @@ impl<'input> Lexer<'input> {
     pub fn new(lexicon: Lexicon, input: &'input str) -> Self {
         let pattern = lexicon.rules
             .iter()
-            .map(|r| format!("(\\A{})", r.regex.as_str()))
+            .map(|r| format!("(\\A{})", r.pattern()))
             .collect::<Vec<String>>()
             .join("|");
 
@@ -79,7 +79,7 @@ impl<'input> Lexer<'input> {
 
             self.offset += match_len;
 
-            return Next::Token(rule.id, &input[..match_len]);
+            return Next::Token(rule.id(), &input[..match_len]);
         }
 
         Next::End

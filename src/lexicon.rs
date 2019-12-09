@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use regex::Regex;
+use regex_syntax::Parser;
 use unicode_segmentation::UnicodeSegmentation;
 
 pub struct Lexicon {
@@ -14,14 +14,14 @@ pub struct LexiconBuilder {
     rules: Vec<Rule>,
 }
 
-pub struct Rule {
-    pub(crate) id: usize,
-    pub(crate) regex: Regex,
+pub(crate) struct Rule {
+    id: usize,
+    pattern: String,
 }
 
 #[derive(Debug)]
 pub enum Error {
-    Regex(regex::Error),
+    Regex(regex_syntax::Error),
 }
 
 impl LexiconBuilder {
@@ -41,10 +41,20 @@ impl LexiconBuilder {
     }
 
     pub fn rule(mut self, id: usize, pattern: &str) -> Result<Self, Error> {
-        let regex = Regex::new(pattern).map_err(Error::Regex)?;
+        Parser::new().parse(pattern).map_err(Error::Regex)?;
 
-        self.rules.push(Rule { id, regex });
+        self.rules.push(Rule { id, pattern: pattern.into() });
 
         Ok(self)
+    }
+}
+
+impl Rule {
+    pub fn id(&self) -> usize {
+        self.id
+    }
+
+    pub fn pattern(&self) -> &str {
+        &self.pattern
     }
 }
