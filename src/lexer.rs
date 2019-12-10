@@ -1,4 +1,5 @@
-use regex::Regex;
+use regex::{CaptureLocations, Regex};
+
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::Lexicon;
@@ -6,6 +7,7 @@ use crate::Lexicon;
 pub struct Lexer<'input, 'lexicon> {
     lexicon: &'lexicon Lexicon,
     patterns: Regex,
+    locations: CaptureLocations,
     input: &'input str,
     offset: usize,
 }
@@ -31,10 +33,12 @@ impl<'input, 'lexicon> Lexer<'input, 'lexicon> {
             .join("|");
 
         let patterns = Regex::new(&pattern).unwrap();
+        let locations = patterns.capture_locations();
 
         Self {
             lexicon,
             patterns,
+            locations,
             input,
             offset: 0,
         }
@@ -54,26 +58,19 @@ impl<'input, 'lexicon> Lexer<'input, 'lexicon> {
                 continue;
             }
 
-            let found = self.patterns.captures(input);
-            if found.is_none() {
+            let matched = self.patterns.captures_read(&mut self.locations, input);
+            if matched.is_none() {
                 self.offset += g.len();
-
                 return Next::Error(Error::UnexpectedChar(g));
             }
 
-            let captures = found.unwrap();
+            let match_len = matched.map(|m| m.end() - m.start()).unwrap();
 
             let mut rule = &self.lexicon.rules[0];
-            let mut match_len = 0;
-
             for i in 1..=self.lexicon.rules.len() {
-                if let Some(m) = captures.get(i) {
-                    let m_len = m.end() - m.start();
-
-                    if m_len > match_len {
-                        rule = &self.lexicon.rules[i - 1];
-                        match_len = m_len;
-                    }
+                if self.locations.get(i).is_some() {
+                    rule = &self.lexicon.rules[i - 1];
+                    break;
                 }
             }
 
