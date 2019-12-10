@@ -18,7 +18,8 @@ mod tests {
 
     #[test]
     fn empty() {
-        let mut lexer = Lexer::new(simple_lexicon(), "");
+        let lexicon = simple_lexicon();
+        let mut lexer = Lexer::new(&lexicon, "");
 
         assert_eq!(lexer.next(), Next::End);
         assert_eq!(lexer.next(), Next::End);
@@ -26,7 +27,8 @@ mod tests {
 
     #[test]
     fn invalid() {
-        let mut lexer = Lexer::new(simple_lexicon(), "a b 1 -     ");
+        let lexicon = simple_lexicon();
+        let mut lexer = Lexer::new(&lexicon, "a b 1 -     ");
 
         assert_eq!(lexer.next(), Next::Token(0, "a"));
         assert_eq!(lexer.next(), Next::Token(0, "b"));
@@ -37,14 +39,16 @@ mod tests {
 
     #[test]
     fn whitespace() {
-        let mut lexer = Lexer::new(simple_lexicon(), "       ");
+        let lexicon = simple_lexicon();
+        let mut lexer = Lexer::new(&lexicon, "       ");
 
         assert_eq!(lexer.next(), Next::End);
     }
 
     #[test]
     fn words() {
-        let mut lexer = Lexer::new(simple_lexicon(), "   abc AAaa 123   ");
+        let lexicon = simple_lexicon();
+        let mut lexer = Lexer::new(&lexicon, "   abc AAaa 123   ");
 
         assert_eq!(lexer.next(), Next::Token(0, "abc"));
         assert_eq!(lexer.next(), Next::Token(0, "AAaa"));

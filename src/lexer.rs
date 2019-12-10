@@ -3,8 +3,8 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::Lexicon;
 
-pub struct Lexer<'input> {
-    lexicon: Lexicon,
+pub struct Lexer<'input, 'lexicon> {
+    lexicon: &'lexicon Lexicon,
     patterns: Regex,
     input: &'input str,
     offset: usize,
@@ -22,8 +22,8 @@ pub enum Error<'input> {
     UnexpectedChar(&'input str),
 }
 
-impl<'input> Lexer<'input> {
-    pub fn new(lexicon: Lexicon, input: &'input str) -> Self {
+impl<'input, 'lexicon> Lexer<'input, 'lexicon> {
+    pub fn new(lexicon: &'lexicon Lexicon, input: &'input str) -> Self {
         let pattern = lexicon.rules
             .iter()
             .map(|r| format!("(\\A{})", r.pattern()))
