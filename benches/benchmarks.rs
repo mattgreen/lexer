@@ -35,7 +35,7 @@ fn bench_kjv(c: &mut Criterion) {
 
 criterion_group! {
     name = benches;
-    config = Criterion::default().sample_size(10);
+    config = Criterion::default();
     targets = bench_kjv
 }
 
