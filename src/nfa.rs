@@ -1,8 +1,10 @@
+use std::rc::Rc;
+
 use bit_set::BitSet;
 
 #[derive(Clone, Debug)]
 pub struct NFA {
-    states: Vec<State>,
+    states: Rc<Vec<State>>,
 }
 
 #[derive(Clone, Debug)]
@@ -15,7 +17,6 @@ pub struct State {
 #[derive(Clone, Debug)]
 pub enum Transition {
     Ranges(Vec<CharRange>, StateID),
-    Set(String, StateID),
 }
 
 pub struct ExecutionState {
@@ -29,7 +30,7 @@ type StateID = usize;
 
 impl NFA {
     pub fn new(states: Vec<State>) -> NFA {
-        NFA { states }
+        NFA { states: Rc::new(states) }
     }
 
     pub fn has_match_state(&self, states: &States) -> bool {
@@ -136,11 +137,6 @@ impl State {
                         *target = to;
                     }
                 }
-                Transition::Set(_, target) => {
-                    if *target == from {
-                        *target = to;
-                    }
-                }
             }
         }
 
@@ -161,11 +157,6 @@ impl State {
                             return Some(*to);
                         }
                     }
-                    Transition::Set(s, to) => {
-                        if s.find(c).is_some() {
-                            return Some(*to);
-                        }
-                    }
                 }
 
                 None
@@ -177,9 +168,5 @@ impl State {
 impl Transition {
     pub fn ranges(sets: &[CharRange], to: StateID) -> Transition {
         Transition::Ranges(sets.to_owned(), to)
-    }
-
-    pub fn set(set: &str, to: StateID) -> Transition {
-        Transition::Set(set.to_owned(), to)
     }
 }
