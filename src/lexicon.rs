@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
-use regex_syntax::Parser;
 use unicode_segmentation::UnicodeSegmentation;
+
+use crate::compile::compile;
+use crate::nfa;
 
 pub struct Lexicon {
     pub(crate) ignore_chars: HashSet<String>,
@@ -15,8 +17,9 @@ pub struct LexiconBuilder {
 }
 
 pub(crate) struct Rule {
-    id: usize,
-    pattern: String,
+    pub id: usize,
+    pub nfa: nfa::NFA,
+    pub state: nfa::ExecutionState,
 }
 
 #[derive(Debug)]
@@ -41,20 +44,11 @@ impl LexiconBuilder {
     }
 
     pub fn rule(mut self, id: usize, pattern: &str) -> Result<Self, Error> {
-        Parser::new().parse(pattern).map_err(Error::Regex)?;
+        let nfa = compile(pattern);
+        let state = nfa.execution_state();
 
-        self.rules.push(Rule { id, pattern: pattern.into() });
+        self.rules.push(Rule { id, nfa, state });
 
         Ok(self)
-    }
-}
-
-impl Rule {
-    pub fn id(&self) -> usize {
-        self.id
-    }
-
-    pub fn pattern(&self) -> &str {
-        &self.pattern
     }
 }
