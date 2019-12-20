@@ -1,5 +1,7 @@
+mod compile;
 mod lexicon;
 mod lexer;
+mod nfa;
 
 pub use crate::lexicon::{Lexicon, LexiconBuilder, Error as LexiconBuilderError};
 pub use crate::lexer::{Lexer, Next, Error};
