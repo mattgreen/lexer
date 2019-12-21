@@ -36,9 +36,9 @@ impl<'input> Lexer<'input> {
             .rules
             .iter()
             .map(|r| Rule {
-                id: r.id,
-                nfa: r.nfa.clone(),
-                state: r.nfa.execution_state(),
+                id: r.id(),
+                nfa: r.nfa().clone(),
+                state: r.nfa().execution_state(),
             })
             .collect::<Vec<_>>();
 

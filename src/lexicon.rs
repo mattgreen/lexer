@@ -2,7 +2,6 @@ use std::collections::HashSet;
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::compile::compile;
 use crate::nfa;
 
 pub struct Lexicon {
@@ -17,15 +16,11 @@ pub struct LexiconBuilder {
 }
 
 pub(crate) struct Rule {
-    pub id: usize,
-    pub nfa: nfa::NFA,
-    pub state: nfa::ExecutionState,
+    id: usize,
+    nfa: nfa::NFA,
 }
 
-#[derive(Debug)]
-pub enum Error {
-    Regex(regex_syntax::Error),
-}
+pub type Error = nfa::CompileError;
 
 impl LexiconBuilder {
     pub fn new() -> Self {
@@ -44,11 +39,20 @@ impl LexiconBuilder {
     }
 
     pub fn rule(mut self, id: usize, pattern: &str) -> Result<Self, Error> {
-        let nfa = compile(pattern);
-        let state = nfa.execution_state();
+        let nfa = nfa::compile(pattern)?;
 
-        self.rules.push(Rule { id, nfa, state });
+        self.rules.push(Rule { id, nfa });
 
         Ok(self)
+    }
+}
+
+impl Rule {
+    pub(crate) fn id(&self) -> usize {
+        self.id
+    }
+
+    pub(crate) fn nfa(&self) -> &nfa::NFA {
+        &self.nfa
     }
 }

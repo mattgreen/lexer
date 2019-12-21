@@ -1,23 +1,25 @@
 use regex_syntax::hir::{self, Hir, HirKind};
 use regex_syntax::Parser;
 
-use crate::nfa::{State, Transition, NFA};
+use super::{State, Transition, NFA};
 
+#[derive(Debug)]
 pub enum Error {
-    InvalidPattern,
+    InvalidPattern(regex_syntax::Error),
+    UnsupportedFeature(&'static str),
 }
 
-pub fn compile(pattern: &str) -> NFA {
-    let hir = Parser::new().parse(pattern).unwrap();
-    let mut states = vec![];
-    compile_hir(&hir, &mut states);
+pub fn compile(pattern: &str) -> Result<NFA, Error> {
+    let hir = Parser::new().parse(pattern).map_err(Error::InvalidPattern)?;
 
+    let mut states = vec![];
+    compile_hir(&hir, &mut states)?;
     states.push(State::accept(&[], &[]));
 
-    NFA::new(states)
+    Ok(NFA::new(states))
 }
 
-fn compile_hir(hir: &Hir, states: &mut Vec<State>) {
+fn compile_hir(hir: &Hir, states: &mut Vec<State>) -> Result<(), Error> {
     match hir.kind() {
         HirKind::Alternation(alternatives) => {
             let mut fixups = vec![];
@@ -29,7 +31,7 @@ fn compile_hir(hir: &Hir, states: &mut Vec<State>) {
                     states.push(State::new(&[], &[start + 1, 0]));
                 }
 
-                compile_hir(&alt, states);
+                compile_hir(&alt, states)?;
                 fixups.push((states.len() - 1, states.len()));
 
                 if needs_branch {
@@ -43,7 +45,9 @@ fn compile_hir(hir: &Hir, states: &mut Vec<State>) {
                 state.patch(target, end);
             }
         }
-        HirKind::Anchor(_) => panic!("anchor assertions are not supported"),
+        HirKind::Anchor(_) => {
+            return Err(Error::UnsupportedFeature("anchor assertions"));
+        }
         HirKind::Class(class) => {
             match class {
                 hir::Class::Unicode(unicode) => {
@@ -57,17 +61,19 @@ fn compile_hir(hir: &Hir, states: &mut Vec<State>) {
                     ));
 
                 }
-                hir::Class::Bytes(_) => unimplemented!("byte classes"),
+                hir::Class::Bytes(_) => {
+                    return Err(Error::UnsupportedFeature("byte classes"));
+                }
             }
         }
         HirKind::Concat(children) => {
             for c in children.iter() {
-                compile_hir(&c, states);
+                compile_hir(&c, states)?;
             }
         }
         HirKind::Empty => {}
         HirKind::Group(group) => {
-            compile_hir(&group.hir, states);
+            compile_hir(&group.hir, states)?;
         }
         HirKind::Literal(hir::Literal::Unicode(c)) => {
             states.push(State::new(
@@ -75,34 +81,42 @@ fn compile_hir(hir: &Hir, states: &mut Vec<State>) {
                 &[],
             ));
         }
-        HirKind::Literal(hir::Literal::Byte(_)) => unimplemented!("byte literals"),
+        HirKind::Literal(hir::Literal::Byte(_)) =>  {
+            return Err(Error::UnsupportedFeature("byte literals"));
+        }
         HirKind::Repetition(rep) => {
             if !rep.greedy {
-                panic!("non-greedy repetitions are not supported");
+                return Err(Error::UnsupportedFeature("non-greedy repetitions"));
             }
 
             let start = states.len();
             match rep.kind {
                 hir::RepetitionKind::ZeroOrOne => {
                     states.push(State::new(&[], &[0, 0]));
-                    compile_hir(&rep.hir, states);
+                    compile_hir(&rep.hir, states)?;
                     states[start] = State::new(&[], &[start + 1, states.len()]);
                 }
                 hir::RepetitionKind::ZeroOrMore => {
                     states.push(State::new(&[], &[0, 0]));
-                    compile_hir(&rep.hir, states);
+                    compile_hir(&rep.hir, states)?;
                     states.push(State::new(&[], &[start + 1, states.len() + 1]));
                     states[start] = State::new(&[], &[start + 1, states.len()]);
                 }
                 hir::RepetitionKind::OneOrMore => {
-                    compile_hir(&rep.hir, states);
+                    compile_hir(&rep.hir, states)?;
                     states.push(State::new(&[], &[start, states.len() + 1]));
                 }
-                hir::RepetitionKind::Range(_) => unimplemented!("repetition range"),
+                hir::RepetitionKind::Range(_) => {
+                    return Err(Error::UnsupportedFeature("bounded repetition ranges"));
+                }
             }
         }
-        HirKind::WordBoundary(_) => panic!("word boundaries are not supported"),
+        HirKind::WordBoundary(_) => {
+            return Err(Error::UnsupportedFeature("word boundary assertions"));
+        }
     }
+
+    Ok(())
 }
 
 mod tests {
@@ -118,7 +132,7 @@ mod tests {
 
     #[test]
     fn a() {
-        let nfa = compile("a");
+        let nfa = compile("a").unwrap();
 
         assert_eq!(matches(&nfa, "a"), true);
         assert_eq!(matches(&nfa, ""), false);
@@ -127,7 +141,7 @@ mod tests {
 
     #[test]
     fn aa() {
-        let nfa = compile("aa");
+        let nfa = compile("aa").unwrap();
 
         assert_eq!(matches(&nfa, "a"), false);
         assert_eq!(matches(&nfa, "aa"), true);
@@ -135,14 +149,14 @@ mod tests {
 
     #[test]
     fn a_rep() {
-        let nfa = compile("a+");
+        let nfa = compile("a+").unwrap();
 
         assert_eq!(matches(&nfa, "aaaaaaa"), true);
     }
 
     #[test]
     fn a_zero_or_one() {
-        let nfa = compile("a?");
+        let nfa = compile("a?").unwrap();
 
         assert_eq!(matches(&nfa, ""), true);
         assert_eq!(matches(&nfa, "a"), true);
@@ -152,7 +166,7 @@ mod tests {
 
     #[test]
     fn a_zero_or_more() {
-        let nfa = compile("a*");
+        let nfa = compile("a*").unwrap();
 
         assert_eq!(matches(&nfa, ""), true);
         assert_eq!(matches(&nfa, "a"), true);
@@ -162,7 +176,7 @@ mod tests {
 
     #[test]
     fn classes() {
-        let nfa = compile("[a-zA-Z]");
+        let nfa = compile("[a-zA-Z]").unwrap();
 
         assert_eq!(matches(&nfa, "a"), true);
         assert_eq!(matches(&nfa, "0"), false);
@@ -171,7 +185,7 @@ mod tests {
 
     #[test]
     fn class_rep() {
-        let nfa = compile("[a-zA-Z]+");
+        let nfa = compile("[a-zA-Z]+").unwrap();
 
         assert_eq!(matches(&nfa, "a"), true);
         assert_eq!(matches(&nfa, "aaaaaa"), true);
@@ -181,7 +195,7 @@ mod tests {
 
     #[test]
     fn class_set() {
-        let nfa = compile("[.+'\"]");
+        let nfa = compile("[.+'\"]").unwrap();
 
         assert_eq!(matches(&nfa, "."), true);
         assert_eq!(matches(&nfa, "+"), true);
@@ -193,7 +207,7 @@ mod tests {
 
     #[test]
     fn group() {
-        let nfa = compile("(ab)a");
+        let nfa = compile("(ab)a").unwrap();
 
         assert_eq!(matches(&nfa, "aba"), true);
         assert_eq!(matches(&nfa, "ab"), false);
@@ -202,7 +216,7 @@ mod tests {
 
     #[test]
     fn alt() {
-        let nfa = compile("aa|bb");
+        let nfa = compile("aa|bb").unwrap();
 
         assert_eq!(matches(&nfa, "aa"), true);
         assert_eq!(matches(&nfa, "bb"), true);

@@ -1,4 +1,3 @@
-mod compile;
 mod lexicon;
 mod lexer;
 mod nfa;

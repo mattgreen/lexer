@@ -1,3 +1,7 @@
+mod compile;
+
+pub use compile::{compile, Error as CompileError};
+
 use std::rc::Rc;
 
 use bit_set::BitSet;
@@ -30,7 +34,9 @@ type StateID = usize;
 
 impl NFA {
     pub fn new(states: Vec<State>) -> NFA {
-        NFA { states: Rc::new(states) }
+        NFA {
+            states: Rc::new(states),
+        }
     }
 
     pub fn has_match_state(&self, states: &States) -> bool {
