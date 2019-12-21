@@ -1,3 +1,4 @@
+pub mod analyze;
 mod compile;
 
 pub use compile::{compile, Error as CompileError};
@@ -13,9 +14,9 @@ pub struct NFA {
 
 #[derive(Clone, Debug)]
 pub struct State {
-    accept: bool,
-    transitions: Vec<Transition>,
-    epsilon_transitions: Vec<StateID>,
+    pub(super) accept: bool,
+    pub(super) transitions: Vec<Transition>,
+    pub(super) epsilon_transitions: Vec<StateID>,
 }
 
 #[derive(Clone, Debug)]

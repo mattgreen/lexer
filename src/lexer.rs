@@ -1,6 +1,6 @@
 use bit_set::BitSet;
 
-use crate::nfa::{ExecutionState, NFA};
+use crate::nfa::{analyze, ExecutionState, NFA};
 use crate::Lexicon;
 
 pub struct Lexer<'input> {
@@ -32,7 +32,7 @@ struct Rule {
 
 impl<'input> Lexer<'input> {
     pub fn new(lexicon: &Lexicon, input: &'input str) -> Self {
-        let mut rules = lexicon
+        let rules = lexicon
             .rules
             .iter()
             .map(|r| Rule {
@@ -52,23 +52,15 @@ impl<'input> Lexer<'input> {
             }
         }
 
-        let mut prefixes = Vec::with_capacity(256);
-        for i in 0..256 {
-            let mut matching_rules = BitSet::new();
+        let mut prefixes = vec![BitSet::new(); 256];
+        for (rule_idx, rule) in rules.iter().enumerate() {
+            let ranges = analyze::starting_chars(&rule.nfa);
 
-            let c = (i as u8) as char;
-            if c.is_ascii() {
-                for (rule_idx, rule) in rules.iter_mut().enumerate() {
-                    rule.nfa.initialize_states(&mut rule.state.current);
-                    rule.nfa.step(&rule.state.current, c, &mut rule.state.next);
-
-                    if !rule.nfa.is_dead_state(&rule.state.next) {
-                        matching_rules.insert(rule_idx);
-                    }
+            for (low, high) in ranges {
+                for i in (low as usize)..(high as usize) {
+                    prefixes[i].insert(rule_idx);
                 }
             }
-
-            prefixes.push(matching_rules);
         }
 
         Self {
