@@ -148,6 +148,13 @@ mod tests {
     }
 
     #[test]
+    fn any_rep() {
+        let nfa = dbg!(compile(".+").unwrap());
+
+        assert_eq!(matches(&nfa, "aaa"), true);
+    }
+
+    #[test]
     fn a_rep() {
         let nfa = compile("a+").unwrap();
 

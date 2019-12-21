@@ -58,6 +58,10 @@ impl<'input> Lexer<'input> {
 
             for (low, high) in ranges {
                 for i in (low as usize)..(high as usize) {
+                    if i > 255 {
+                        continue;
+                    }
+
                     prefixes[i].insert(rule_idx);
                 }
             }
@@ -129,5 +133,9 @@ impl<'input> Lexer<'input> {
         self.offset += len;
 
         Next::Token(self.rules[rule_idx].id, text)
+    }
+
+    pub fn reset(&mut self) {
+        self.offset = 0;
     }
 }
