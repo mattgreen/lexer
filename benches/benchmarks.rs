@@ -1,9 +1,9 @@
 use std::fs::File;
 use std::io::prelude::*;
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 
-use lexer::{LexiconBuilder, Lexer, Next};
+use lexer::{Lexer, LexiconBuilder, Next};
 
 fn bench_kjv(c: &mut Criterion) {
     let mut file = File::open("benches/kjv.txt").unwrap();
@@ -12,26 +12,31 @@ fn bench_kjv(c: &mut Criterion) {
 
     let lexicon = LexiconBuilder::new()
         .ignore_chars(" ")
-        .rule(1, "[a-zA-Z]+").unwrap()
-        .rule(2, "[0-9]+").unwrap()
-        .rule(3, "[.,'\":]").unwrap()
+        .rule(1, "[a-zA-Z]+")
+        .unwrap()
+        .rule(2, "[0-9]+")
+        .unwrap()
+        .rule(3, "[.,'\":]")
+        .unwrap()
         .build();
 
-    c.bench_function("KJV", |b| {
-        let mut lexer = Lexer::new(&lexicon, &contents);
+    let mut lexer = Lexer::new(&lexicon, &contents);
 
-        b.iter(|| {
-            loop {
-                match lexer.next() {
-                    Next::Token(_, _) => {}
-                    Next::Error(_) => {},
-                    Next::End => break,
-                }
+    let mut group = c.benchmark_group("throughput");
+    group.throughput(Throughput::Bytes(contents.len() as u64));
+    group.bench_function("KJV", |b| {
+        lexer.reset();
+
+        b.iter(|| loop {
+            match lexer.next() {
+                Next::Token(_, _) => {}
+                Next::Error(_) => {}
+                Next::End => break,
             }
         })
     });
+    group.finish();
 }
-
 
 criterion_group! {
     name = benches;
