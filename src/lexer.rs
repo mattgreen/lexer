@@ -77,36 +77,31 @@ impl<'input> Lexer<'input> {
         }
     }
 
-    #[inline]
-    fn eof(&self) -> bool {
-        self.offset >= self.input.len()
-    }
-
     pub fn next(&mut self) -> Next {
-        while !self.eof() {
-            let input = &self.input[self.offset..];
-            let c = input.chars().nth(0).unwrap();
-
-            if !self.ignore_chars.contains(&c) {
+        let mut c = self.input[self.offset..].chars().nth(0);
+        while let Some(ch) = c {
+            if !self.ignore_chars.contains(&ch) {
                 break;
             }
-            self.offset += c.len_utf8();
+
+            self.offset += ch.len_utf8();
+            c = self.input[self.offset..].chars().nth(0);
         }
 
-        if self.eof() {
+        if c.is_none() {
             return Next::End;
         }
 
+        let c = c.unwrap();
         let input = &self.input[self.offset..];
-        let c = input.chars().nth(0).unwrap();
 
-        let rule_indicies = self.prefixes.get(&c);
-        if rule_indicies.is_none() {
-            self.offset += c.len_utf8();
-            return Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]));
-        }
-
-        let rule_indicies = rule_indicies.unwrap();
+        let rule_indicies = match self.prefixes.get(&c) {
+            Some(indicies) => indicies,
+            None => {
+                self.offset += c.len_utf8();
+                return Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]));
+            }
+        };
 
         for (i, rule) in self.rules.iter_mut().enumerate() {
             self.matches[i] = if rule_indicies.contains(i) {
