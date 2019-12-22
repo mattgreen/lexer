@@ -1,3 +1,5 @@
+use std::char;
+
 use bit_set::BitSet;
 use hashbrown::{HashMap, HashSet};
 
@@ -9,7 +11,7 @@ pub struct Lexer<'input> {
     offset: usize,
     rules: Vec<Rule>,
     matches: Vec<Option<usize>>,
-    ignore_chars: HashSet<u32>,
+    ignore_chars: HashSet<char>,
     prefixes: HashMap<u32, BitSet>,
 }
 
@@ -47,7 +49,7 @@ impl<'input> Lexer<'input> {
 
         let mut ignore_chars = HashSet::new();
         for s in lexicon.ignore_chars.iter() {
-            let c = s.chars().nth(0).unwrap() as u32;
+            let c = s.chars().nth(0).unwrap();
             ignore_chars.insert(c);
         }
 
@@ -81,7 +83,7 @@ impl<'input> Lexer<'input> {
     pub fn next(&mut self) -> Next {
         while !self.eof() {
             let input = &self.input[self.offset..];
-            let c = input.chars().nth(0).unwrap() as u32;
+            let c = input.chars().nth(0).unwrap();
 
             if !self.ignore_chars.contains(&c) {
                 break;
