@@ -1,4 +1,5 @@
 use bit_set::BitSet;
+use hashbrown::{HashMap, HashSet};
 
 use crate::nfa::{analyze, ExecutionState, NFA};
 use crate::Lexicon;
@@ -8,8 +9,8 @@ pub struct Lexer<'input> {
     offset: usize,
     rules: Vec<Rule>,
     matches: Vec<Option<usize>>,
-    ignore_chars: [bool; 256],
-    prefixes: Vec<BitSet>,
+    ignore_chars: HashSet<u32>,
+    prefixes: HashMap<u32, BitSet>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -44,25 +45,20 @@ impl<'input> Lexer<'input> {
 
         let matches = vec![None; rules.len()];
 
-        let mut ignore_chars: [bool; 256] = [false; 256];
+        let mut ignore_chars = HashSet::new();
         for s in lexicon.ignore_chars.iter() {
-            let b = s.bytes().nth(0).unwrap();
-            if b.is_ascii() {
-                ignore_chars[b as usize] = true;
-            }
+            let c = s.chars().nth(0).unwrap() as u32;
+            ignore_chars.insert(c);
         }
 
-        let mut prefixes = vec![BitSet::new(); 256];
+        let mut prefixes = HashMap::new();
         for (rule_idx, rule) in rules.iter().enumerate() {
             let ranges = analyze::starting_chars(&rule.nfa);
 
             for (low, high) in ranges {
-                for i in (low as usize)..(high as usize) {
-                    if i > 255 {
-                        continue;
-                    }
-
-                    prefixes[i].insert(rule_idx);
+                for i in (low as u32)..(high as u32) {
+                    let rule_prefixes: &mut BitSet = prefixes.entry(i).or_insert_with(BitSet::new);
+                    rule_prefixes.insert(rule_idx);
                 }
             }
         }
@@ -85,9 +81,9 @@ impl<'input> Lexer<'input> {
     pub fn next(&mut self) -> Next {
         while !self.eof() {
             let input = &self.input[self.offset..];
-            let b = input.bytes().nth(0).unwrap();
+            let c = input.chars().nth(0).unwrap() as u32;
 
-            if !self.ignore_chars[b as usize] {
+            if !self.ignore_chars.contains(&c) {
                 break;
             }
             self.offset += 1;
@@ -98,9 +94,15 @@ impl<'input> Lexer<'input> {
         }
 
         let input = &self.input[self.offset..];
-        let b = input.bytes().nth(0).unwrap();
+        let c = input.chars().nth(0).unwrap() as u32;
 
-        let rule_indicies = &self.prefixes[b as usize];
+        let rule_indicies = self.prefixes.get(&c);
+        if rule_indicies.is_none() {
+            self.offset += 4;
+            return Next::Error(Error::UnexpectedChar(&input[0..1]));
+        }
+
+        let rule_indicies = rule_indicies.unwrap();
 
         for (i, rule) in self.rules.iter_mut().enumerate() {
             self.matches[i] = if rule_indicies.contains(i) {
@@ -123,7 +125,7 @@ impl<'input> Lexer<'input> {
         }
 
         if longest.is_none() {
-            self.offset += 1;
+            self.offset += 4;
             return Next::Error(Error::UnexpectedChar(&input[0..1]));
         }
 
