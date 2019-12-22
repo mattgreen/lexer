@@ -12,7 +12,7 @@ pub struct Lexer<'input> {
     rules: Vec<Rule>,
     matches: Vec<Option<usize>>,
     ignore_chars: HashSet<char>,
-    prefixes: HashMap<u32, BitSet>,
+    prefixes: HashMap<char, BitSet>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -59,8 +59,10 @@ impl<'input> Lexer<'input> {
 
             for (low, high) in ranges {
                 for i in (low as u32)..(high as u32) {
-                    let rule_prefixes: &mut BitSet = prefixes.entry(i).or_insert_with(BitSet::new);
-                    rule_prefixes.insert(rule_idx);
+                    if let Some(c) = char::from_u32(i) {
+                        let rule_prefixes = prefixes.entry(c).or_insert_with(BitSet::new);
+                        rule_prefixes.insert(rule_idx);
+                    }
                 }
             }
         }
@@ -88,7 +90,7 @@ impl<'input> Lexer<'input> {
             if !self.ignore_chars.contains(&c) {
                 break;
             }
-            self.offset += 1;
+            self.offset += c.len_utf8();
         }
 
         if self.eof() {
@@ -96,12 +98,12 @@ impl<'input> Lexer<'input> {
         }
 
         let input = &self.input[self.offset..];
-        let c = input.chars().nth(0).unwrap() as u32;
+        let c = input.chars().nth(0).unwrap();
 
         let rule_indicies = self.prefixes.get(&c);
         if rule_indicies.is_none() {
-            self.offset += 4;
-            return Next::Error(Error::UnexpectedChar(&input[0..1]));
+            self.offset += c.len_utf8();
+            return Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]));
         }
 
         let rule_indicies = rule_indicies.unwrap();
@@ -127,8 +129,8 @@ impl<'input> Lexer<'input> {
         }
 
         if longest.is_none() {
-            self.offset += 4;
-            return Next::Error(Error::UnexpectedChar(&input[0..1]));
+            self.offset += c.len_utf8();
+            return Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]));
         }
 
         let len = longest.unwrap();
