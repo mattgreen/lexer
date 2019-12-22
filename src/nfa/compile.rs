@@ -120,9 +120,10 @@ fn compile_hir(hir: &Hir, states: &mut Vec<State>) -> Result<(), Error> {
 }
 
 mod tests {
-    use super::compile;
-    use crate::nfa::NFA;
+    #[cfg(test)]
+    use super::{compile, NFA};
 
+    #[cfg(test)]
     fn matches(nfa: &NFA, s: &str) -> bool {
         let mut state = nfa.execution_state();
         nfa.initialize_states(&mut state.current);
