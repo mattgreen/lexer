@@ -192,6 +192,16 @@ mod tests {
     }
 
     #[test]
+    fn negated_classes() {
+        let nfa = compile("[^a-zA-Z]").unwrap();
+
+        assert_eq!(matches(&nfa, "a"), false);
+        assert_eq!(matches(&nfa, "0"), true);
+        assert_eq!(matches(&nfa, ""), false);
+    }
+
+
+    #[test]
     fn class_rep() {
         let nfa = compile("[a-zA-Z]+").unwrap();
 
