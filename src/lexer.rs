@@ -58,7 +58,7 @@ impl<'input> Lexer<'input> {
             let ranges = analyze::starting_chars(&rule.nfa);
 
             for (low, high) in ranges {
-                for i in (low as u32)..(high as u32) {
+                for i in (low as u32)..((high as u32) + 1) {
                     if let Some(c) = char::from_u32(i) {
                         let rule_prefixes = prefixes.entry(c).or_insert_with(BitSet::new);
                         rule_prefixes.insert(rule_idx);
@@ -78,21 +78,19 @@ impl<'input> Lexer<'input> {
     }
 
     pub fn next(&mut self) -> Next {
-        let mut c = self.input[self.offset..].chars().nth(0);
-        while let Some(ch) = c {
-            if !self.ignore_chars.contains(&ch) {
-                break;
+        let c = loop {
+            match self.input[self.offset..].chars().nth(0) {
+                Some(ch) => {
+                    if !self.ignore_chars.contains(&ch) {
+                        break ch;
+                    }
+
+                    self.offset += ch.len_utf8();
+                },
+                None => return Next::End,
             }
+        };
 
-            self.offset += ch.len_utf8();
-            c = self.input[self.offset..].chars().nth(0);
-        }
-
-        if c.is_none() {
-            return Next::End;
-        }
-
-        let c = c.unwrap();
         let input = &self.input[self.offset..];
 
         let rule_indicies = match self.prefixes.get(&c) {
