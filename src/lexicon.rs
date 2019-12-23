@@ -1,17 +1,15 @@
 use std::collections::HashSet;
 
-use unicode_segmentation::UnicodeSegmentation;
-
 use crate::nfa;
 
 pub struct Lexicon {
-    pub(crate) ignore_chars: HashSet<String>,
+    pub(crate) ignore_chars: HashSet<char>,
     pub(crate) rules: Vec<Rule>,
 }
 
 #[derive(Default)]
 pub struct LexiconBuilder {
-    ignore_chars: HashSet<String>,
+    ignore_chars: HashSet<char>,
     rules: Vec<Rule>,
 }
 
@@ -32,8 +30,9 @@ impl LexiconBuilder {
     }
 
     pub fn ignore_chars(mut self, chars: &str) -> Self {
-        let new_chars = chars.graphemes(true).map(String::from).collect::<Vec<String>>();
-        self.ignore_chars.extend(new_chars);
+        for ch in chars.chars() {
+            self.ignore_chars.insert(ch);
+        }
 
         self
     }

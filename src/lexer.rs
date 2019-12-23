@@ -55,9 +55,8 @@ impl<'input> Lexer<'input> {
         let matches = vec![None; rules.len()];
 
         let mut ignore_chars = HashSet::new();
-        for s in lexicon.ignore_chars.iter() {
-            let c = s.chars().nth(0).unwrap();
-            ignore_chars.insert(c);
+        for c in lexicon.ignore_chars.iter() {
+            ignore_chars.insert(*c);
         }
 
         let mut prefixes = HashMap::new();
