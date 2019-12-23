@@ -11,12 +11,12 @@ fn bench_kjv(c: &mut Criterion) {
     file.read_to_string(&mut contents).unwrap();
 
     let lexicon = LexiconBuilder::new()
-        .ignore_chars(" ")
+        .ignore_chars(" \t\r\n")
         .rule(1, "[a-zA-Z]+")
         .unwrap()
         .rule(2, "[0-9]+")
         .unwrap()
-        .rule(3, "[.,'\":]")
+        .rule(3, "[.,'\":\\[\\];{}()!?-]")
         .unwrap()
         .build();
 
