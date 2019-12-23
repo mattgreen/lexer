@@ -173,7 +173,7 @@ impl<'input> Lexer<'input> {
         if longest.is_none() {
             self.advance(c);
 
-            return Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]), self.pos);
+            return Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]), pos);
         }
 
         let len = longest.unwrap();
