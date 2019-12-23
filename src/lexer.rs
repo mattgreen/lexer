@@ -95,7 +95,12 @@ impl<'input> Lexer<'input> {
         }
     }
 
-    fn longest_match(nfa: &NFA, input: &str, state: &mut ExecutionState, start: Position) -> Option<(usize, Position)> {
+    fn longest_match(
+        nfa: &NFA,
+        input: &str,
+        state: &mut ExecutionState,
+        start: Position,
+    ) -> Option<(usize, Position)> {
         let mut end = start;
 
         nfa.initialize_states(&mut state.current);
@@ -131,7 +136,7 @@ impl<'input> Lexer<'input> {
                     }
 
                     self.advance(ch);
-                },
+                }
                 None => return Next::End,
             }
         };

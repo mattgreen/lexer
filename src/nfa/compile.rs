@@ -10,7 +10,9 @@ pub enum Error {
 }
 
 pub fn compile(pattern: &str) -> Result<NFA, Error> {
-    let hir = Parser::new().parse(pattern).map_err(Error::InvalidPattern)?;
+    let hir = Parser::new()
+        .parse(pattern)
+        .map_err(Error::InvalidPattern)?;
 
     let mut states = vec![];
     compile_hir(&hir, &mut states)?;
@@ -48,24 +50,22 @@ fn compile_hir(hir: &Hir, states: &mut Vec<State>) -> Result<(), Error> {
         HirKind::Anchor(_) => {
             return Err(Error::UnsupportedFeature("anchor assertions"));
         }
-        HirKind::Class(class) => {
-            match class {
-                hir::Class::Unicode(unicode) => {
-                    let ranges = unicode.iter()
-                        .map(|r| (r.start(), r.end()))
-                        .collect::<Vec<_>>();
+        HirKind::Class(class) => match class {
+            hir::Class::Unicode(unicode) => {
+                let ranges = unicode
+                    .iter()
+                    .map(|r| (r.start(), r.end()))
+                    .collect::<Vec<_>>();
 
-                    states.push(State::new(
-                        &[Transition::ranges(&ranges, states.len() + 1)],
-                        &[],
-                    ));
-
-                }
-                hir::Class::Bytes(_) => {
-                    return Err(Error::UnsupportedFeature("byte classes"));
-                }
+                states.push(State::new(
+                    &[Transition::ranges(&ranges, states.len() + 1)],
+                    &[],
+                ));
             }
-        }
+            hir::Class::Bytes(_) => {
+                return Err(Error::UnsupportedFeature("byte classes"));
+            }
+        },
         HirKind::Concat(children) => {
             for c in children.iter() {
                 compile_hir(&c, states)?;
@@ -81,7 +81,7 @@ fn compile_hir(hir: &Hir, states: &mut Vec<State>) -> Result<(), Error> {
                 &[],
             ));
         }
-        HirKind::Literal(hir::Literal::Byte(_)) =>  {
+        HirKind::Literal(hir::Literal::Byte(_)) => {
             return Err(Error::UnsupportedFeature("byte literals"));
         }
         HirKind::Repetition(rep) => {
@@ -199,7 +199,6 @@ mod tests {
         assert_eq!(matches(&nfa, "0"), true);
         assert_eq!(matches(&nfa, ""), false);
     }
-
 
     #[test]
     fn class_rep() {

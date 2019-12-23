@@ -1,9 +1,9 @@
-mod lexicon;
 mod lexer;
+mod lexicon;
 mod nfa;
 
-pub use crate::lexicon::{Lexicon, LexiconBuilder, Error as LexiconBuilderError};
-pub use crate::lexer::{Lexer, Next, Error, Position};
+pub use crate::lexer::{Error, Lexer, Next, Position};
+pub use crate::lexicon::{Error as LexiconBuilderError, Lexicon, LexiconBuilder};
 
 #[cfg(test)]
 mod tests {
@@ -12,8 +12,10 @@ mod tests {
     fn simple_lexicon() -> Lexicon {
         LexiconBuilder::new()
             .ignore_chars(" ")
-            .rule(0, r"[a-zA-Z]+").unwrap()
-            .rule(1, r"[0-9]+").unwrap()
+            .rule(0, r"[a-zA-Z]+")
+            .unwrap()
+            .rule(1, r"[0-9]+")
+            .unwrap()
             .build()
     }
 
@@ -34,7 +36,10 @@ mod tests {
         assert_eq!(lexer.next(), Next::Token(0, "a", Position::new(1, 1)));
         assert_eq!(lexer.next(), Next::Token(0, "b", Position::new(1, 3)));
         assert_eq!(lexer.next(), Next::Token(1, "1", Position::new(1, 5)));
-        assert_eq!(lexer.next(), Next::Error(Error::UnexpectedChar("-"), Position::new(1, 7)));
+        assert_eq!(
+            lexer.next(),
+            Next::Error(Error::UnexpectedChar("-"), Position::new(1, 7))
+        );
         assert_eq!(lexer.next(), Next::End);
     }
 

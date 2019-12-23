@@ -22,11 +22,17 @@ pub type Error = nfa::CompileError;
 
 impl LexiconBuilder {
     pub fn new() -> Self {
-        Self { ignore_chars: HashSet::new(), rules: vec![] }
+        Self {
+            ignore_chars: HashSet::new(),
+            rules: vec![],
+        }
     }
 
     pub fn build(self) -> Lexicon {
-        Lexicon { ignore_chars: self.ignore_chars, rules: self.rules }
+        Lexicon {
+            ignore_chars: self.ignore_chars,
+            rules: self.rules,
+        }
     }
 
     pub fn ignore_chars(mut self, chars: &str) -> Self {

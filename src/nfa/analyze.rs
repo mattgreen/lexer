@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-use super::{NFA, Transition, CharRange};
+use super::{CharRange, Transition, NFA};
 
 pub fn starting_chars(nfa: &NFA) -> Vec<CharRange> {
     let mut state = nfa.execution_state();
