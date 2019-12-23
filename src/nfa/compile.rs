@@ -128,7 +128,7 @@ mod tests {
         let mut state = nfa.execution_state();
         nfa.initialize_states(&mut state.current);
 
-        nfa.longest_match(s, &mut state) == Some(s.len())
+        nfa.matches(s, &mut state) == Some(s.len())
     }
 
     #[test]

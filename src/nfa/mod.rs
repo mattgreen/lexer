@@ -67,7 +67,8 @@ impl NFA {
         self.add_states(states, 0);
     }
 
-    pub fn longest_match(&self, input: &str, state: &mut ExecutionState) -> Option<usize> {
+    #[allow(dead_code)]
+    pub fn matches(&self, input: &str, state: &mut ExecutionState) -> Option<usize> {
         state.current.clear();
         self.add_states(&mut state.current, 0);
 

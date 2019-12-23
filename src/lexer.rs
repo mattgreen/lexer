@@ -65,7 +65,7 @@ impl<'input> Lexer<'input> {
             let ranges = analyze::starting_chars(&rule.nfa);
 
             for (low, high) in ranges {
-                for i in (low as u32)..((high as u32) + 1) {
+                for i in (low as u32)..=(high as u32) {
                     if let Some(c) = char::from_u32(i) {
                         let rule_prefixes = prefixes.entry(c).or_insert_with(BitSet::new);
                         rule_prefixes.insert(rule_idx);
@@ -152,7 +152,6 @@ impl<'input> Lexer<'input> {
         for (i, rule) in self.rules.iter_mut().enumerate() {
             self.matches[i] = if rule_indicies.contains(i) {
                 Self::longest_match(&rule.nfa, input, &mut rule.state, pos)
-                // rule.nfa.longest_match(input, &mut rule.state)
             } else {
                 None
             };
