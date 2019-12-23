@@ -11,7 +11,7 @@ pub struct Lexer<'input> {
     offset: usize,
     pos: Position,
     rules: Vec<Rule>,
-    matches: Vec<Option<usize>>,
+    matches: Vec<Option<(usize, Position)>>,
     ignore_chars: HashSet<char>,
     prefixes: HashMap<char, BitSet>,
 }
@@ -96,26 +96,23 @@ impl<'input> Lexer<'input> {
         }
     }
 
-    fn longest_match(rule: &mut Rule, input: &str, start: Position) -> Option<(usize, Position)> {
-        let nfa = &rule.nfa;
-        let state = &mut rule.state;
-        let mut pos = start;
+    fn longest_match(nfa: &NFA, input: &str, state: &mut ExecutionState, start: Position) -> Option<(usize, Position)> {
+        let mut end = start;
 
         nfa.initialize_states(&mut state.current);
 
         let mut match_len = None;
-
         for (len, c) in input.chars().enumerate() {
             nfa.step(&state.current, c, &mut state.next);
             if c == '\n' {
-                pos.line += 1;
-                pos.col = 1;
+                end.line += 1;
+                end.col = 1;
             } else {
-                pos.col += 1;
+                end.col += 1;
             }
 
             if nfa.has_match_state(&state.next) {
-                match_len = Some((len + 1, pos));
+                match_len = Some((len + 1, end));
             } else if nfa.is_dead_state(&state.next) {
                 break;
             }
@@ -154,8 +151,8 @@ impl<'input> Lexer<'input> {
 
         for (i, rule) in self.rules.iter_mut().enumerate() {
             self.matches[i] = if rule_indicies.contains(i) {
-                //Self::longest_match(rule, input)
-                rule.nfa.longest_match(input, &mut rule.state)
+                Self::longest_match(&rule.nfa, input, &mut rule.state, pos)
+                // rule.nfa.longest_match(input, &mut rule.state)
             } else {
                 None
             };
@@ -163,12 +160,14 @@ impl<'input> Lexer<'input> {
 
         let mut longest = None;
         let mut rule_idx = 0;
+        let mut end_pos = pos;
 
         for (idx, m) in self.matches.iter().enumerate() {
-            if let Some(m) = m {
+            if let Some((m, end)) = m {
                 if *m > longest.unwrap_or(0) {
                     longest = Some(*m);
                     rule_idx = idx;
+                    end_pos = *end;
                 }
             }
         }
@@ -182,9 +181,8 @@ impl<'input> Lexer<'input> {
         let len = longest.unwrap();
 
         let text = &self.input[self.offset..(self.offset + len)];
-        for c in text.chars() {
-            self.advance(c);
-        }
+        self.offset += len;
+        self.pos = end_pos;
 
         Next::Token(self.rules[rule_idx].id, text, pos)
     }
