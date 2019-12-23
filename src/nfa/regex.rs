@@ -106,8 +106,32 @@ fn compile_hir(hir: &Hir, states: &mut Vec<State>) -> Result<(), Error> {
                     compile_hir(&rep.hir, states)?;
                     states.push(State::new(&[], &[start, states.len() + 1]));
                 }
-                hir::RepetitionKind::Range(_) => {
-                    return Err(Error::UnsupportedFeature("bounded repetition ranges"));
+                hir::RepetitionKind::Range(ref range) => {
+                    match range {
+                        hir::RepetitionRange::Exactly(n) => {
+                            for _ in 0..*n {
+                                compile_hir(&rep.hir, states)?
+                            }
+                        }
+                        hir::RepetitionRange::AtLeast(n) => {
+                            for _ in 0..*n {
+                                compile_hir(&rep.hir, states)?;
+                            }
+                            states.push(State::new(&[], &[states.len() - 1, states.len() + 1]));
+                        }
+                        hir::RepetitionRange::Bounded(low, high) => {
+                            for _ in 0..*low {
+                                compile_hir(&rep.hir, states)?;
+                            }
+
+                            for _ in 0..(*high - *low) {
+                                let idx = states.len();
+                                states.push(State::new(&[], &[0, 0]));
+                                compile_hir(&rep.hir, states)?;
+                                states[idx] = State::new(&[], &[idx + 1, states.len()]);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -238,5 +262,34 @@ mod tests {
         assert_eq!(matches(&nfa, "aa"), true);
         assert_eq!(matches(&nfa, "bb"), true);
         assert_eq!(matches(&nfa, "cc"), false);
+    }
+
+    #[test]
+    fn rep_exactly() {
+        let nfa = compile("a{4}").unwrap();
+
+        assert_eq!(matches(&nfa, "aaaa"), true);
+        assert_eq!(matches(&nfa, "aa"), false);
+    }
+
+    #[test]
+    fn rep_at_least() {
+        let nfa = compile("a{4,}").unwrap();
+
+        assert_eq!(matches(&nfa, "aaaa"), true);
+        assert_eq!(matches(&nfa, "aaaaa"), true);
+        assert_eq!(matches(&nfa, "aaaaaa"), true);
+        assert_eq!(matches(&nfa, "aa"), false);
+    }
+
+    #[test]
+    fn rep_bounded() {
+        let nfa = compile("a{4,6}").unwrap();
+
+        assert_eq!(matches(&nfa, "aaaa"), true);
+        assert_eq!(matches(&nfa, "aaaaa"), true);
+        assert_eq!(matches(&nfa, "aaaaaa"), true);
+        assert_eq!(matches(&nfa, "aaaaaaa"), false);
+        assert_eq!(matches(&nfa, "aa"), false);
     }
 }

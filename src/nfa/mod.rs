@@ -1,7 +1,7 @@
 pub mod analyze;
-mod compile;
+mod regex;
 
-pub use compile::{compile, Error as CompileError};
+pub use regex::{compile, Error as CompileError};
 
 use std::rc::Rc;
 
