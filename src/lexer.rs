@@ -9,6 +9,7 @@ use crate::Lexicon;
 pub struct Lexer<'input> {
     input: &'input str,
     offset: usize,
+    pos: Position,
     rules: Vec<Rule>,
     matches: Vec<Option<usize>>,
     ignore_chars: HashSet<char>,
@@ -17,14 +18,20 @@ pub struct Lexer<'input> {
 
 #[derive(Debug, PartialEq)]
 pub enum Next<'input> {
-    Token(usize, &'input str),
+    Token(usize, &'input str, Position),
     End,
-    Error(Error<'input>),
+    Error(Error<'input>, Position),
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Error<'input> {
     UnexpectedChar(&'input str),
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Position {
+    line: u32,
+    col: u32,
 }
 
 struct Rule {
@@ -70,11 +77,53 @@ impl<'input> Lexer<'input> {
         Self {
             input,
             offset: 0,
+            pos: Position { line: 1, col: 1 },
             rules,
             matches,
             ignore_chars,
             prefixes,
         }
+    }
+
+    fn advance(&mut self, ch: char) {
+        self.offset += ch.len_utf8();
+
+        if ch == '\n' {
+            self.pos.line += 1;
+            self.pos.col = 1;
+        } else {
+            self.pos.col += 1;
+        }
+    }
+
+    fn longest_match(rule: &mut Rule, input: &str, start: Position) -> Option<(usize, Position)> {
+        let nfa = &rule.nfa;
+        let state = &mut rule.state;
+        let mut pos = start;
+
+        nfa.initialize_states(&mut state.current);
+
+        let mut match_len = None;
+
+        for (len, c) in input.chars().enumerate() {
+            nfa.step(&state.current, c, &mut state.next);
+            if c == '\n' {
+                pos.line += 1;
+                pos.col = 1;
+            } else {
+                pos.col += 1;
+            }
+
+            if nfa.has_match_state(&state.next) {
+                match_len = Some((len + 1, pos));
+            } else if nfa.is_dead_state(&state.next) {
+                break;
+            }
+
+            std::mem::swap(&mut state.current, &mut state.next);
+        }
+
+        match_len
     }
 
     pub fn next(&mut self) -> Next {
@@ -85,24 +134,27 @@ impl<'input> Lexer<'input> {
                         break ch;
                     }
 
-                    self.offset += ch.len_utf8();
+                    self.advance(ch);
                 },
                 None => return Next::End,
             }
         };
 
         let input = &self.input[self.offset..];
+        let pos = self.pos;
 
         let rule_indicies = match self.prefixes.get(&c) {
             Some(indicies) => indicies,
             None => {
-                self.offset += c.len_utf8();
-                return Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]));
+                self.advance(c);
+
+                return Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]), pos);
             }
         };
 
         for (i, rule) in self.rules.iter_mut().enumerate() {
             self.matches[i] = if rule_indicies.contains(i) {
+                //Self::longest_match(rule, input)
                 rule.nfa.longest_match(input, &mut rule.state)
             } else {
                 None
@@ -122,19 +174,29 @@ impl<'input> Lexer<'input> {
         }
 
         if longest.is_none() {
-            self.offset += c.len_utf8();
-            return Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]));
+            self.advance(c);
+
+            return Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]), self.pos);
         }
 
         let len = longest.unwrap();
 
         let text = &self.input[self.offset..(self.offset + len)];
-        self.offset += len;
+        for c in text.chars() {
+            self.advance(c);
+        }
 
-        Next::Token(self.rules[rule_idx].id, text)
+        Next::Token(self.rules[rule_idx].id, text, pos)
     }
 
     pub fn reset(&mut self) {
         self.offset = 0;
+        self.pos = Position::new(1, 1);
+    }
+}
+
+impl Position {
+    pub fn new(line: u32, col: u32) -> Position {
+        Position { line, col }
     }
 }

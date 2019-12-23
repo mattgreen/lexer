@@ -29,8 +29,8 @@ fn bench_kjv(c: &mut Criterion) {
 
         b.iter(|| loop {
             match lexer.next() {
-                Next::Token(_, _) => {}
-                Next::Error(_) => {}
+                Next::Token(_, _, _) => {}
+                Next::Error(_, _) => {}
                 Next::End => break,
             }
         })

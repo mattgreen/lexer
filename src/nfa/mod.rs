@@ -61,6 +61,7 @@ impl NFA {
         states
     }
 
+    #[inline]
     pub fn initialize_states(&self, states: &mut States) {
         states.clear();
         self.add_states(states, 0);
@@ -80,8 +81,8 @@ impl NFA {
 
         let mut match_len = None;
 
-        for (len, c) in input.bytes().enumerate() {
-            self.step(&state.current, c as char, &mut state.next);
+        for (len, c) in input.chars().enumerate() {
+            self.step(&state.current, c, &mut state.next);
 
             if self.has_match_state(&state.next) {
                 match_len = Some(len + 1);
