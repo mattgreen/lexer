@@ -12,11 +12,11 @@ mod tests {
     fn simple_lexicon() -> Lexicon {
         LexiconBuilder::new()
             .ignore_chars(" ")
-            .rule(0, r"[a-zA-Z]+")
-            .unwrap()
-            .rule(1, r"[0-9]+")
-            .unwrap()
+            .pattern(0, r"[a-zA-Z]+")
+            .pattern(1, r"[0-9]+")
+            .literal(2, "if")
             .build()
+            .unwrap()
     }
 
     #[test]
@@ -59,6 +59,18 @@ mod tests {
         assert_eq!(lexer.next(), Next::Token(0, "abc", Position::new(1, 4)));
         assert_eq!(lexer.next(), Next::Token(0, "AAaa", Position::new(1, 8)));
         assert_eq!(lexer.next(), Next::Token(1, "123", Position::new(1, 13)));
+        assert_eq!(lexer.next(), Next::End);
+    }
+
+    #[test]
+    fn literals() {
+        let lexicon = simple_lexicon();
+        let mut lexer = Lexer::new(&lexicon, "   abc if iffy 123   ");
+
+        assert_eq!(lexer.next(), Next::Token(0, "abc", Position::new(1, 4)));
+        assert_eq!(lexer.next(), Next::Token(2, "if", Position::new(1, 8)));
+        assert_eq!(lexer.next(), Next::Token(0, "iffy", Position::new(1, 11)));
+        assert_eq!(lexer.next(), Next::Token(1, "123", Position::new(1, 16)));
         assert_eq!(lexer.next(), Next::End);
     }
 }

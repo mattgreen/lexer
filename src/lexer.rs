@@ -3,15 +3,15 @@ use std::char;
 use bit_set::BitSet;
 use hashbrown::{HashMap, HashSet};
 
+use crate::lexicon::{self, Lexicon};
 use crate::nfa::{analyze, ExecutionState, NFA};
-use crate::Lexicon;
 
 pub struct Lexer<'input> {
     input: &'input str,
     offset: usize,
     pos: Position,
     rules: Vec<Rule>,
-    matches: Vec<Option<(usize, Position)>>,
+    matches: Vec<(usize, usize, Position)>,
     ignore_chars: HashSet<char>,
     prefixes: HashMap<char, BitSet>,
 }
@@ -35,9 +35,16 @@ pub struct Position {
 }
 
 struct Rule {
+    kind: RuleKind,
     id: usize,
     nfa: NFA,
     state: ExecutionState,
+}
+
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
+enum RuleKind {
+    Pattern,
+    Literal,
 }
 
 impl<'input> Lexer<'input> {
@@ -45,14 +52,23 @@ impl<'input> Lexer<'input> {
         let rules = lexicon
             .rules
             .iter()
-            .map(|r| Rule {
-                id: r.id(),
-                nfa: r.nfa().clone(),
-                state: r.nfa().execution_state(),
+            .map(|r| match r.kind {
+                lexicon::RuleKind::Literal(ref nfa) => Rule {
+                    id: r.id,
+                    kind: RuleKind::Literal,
+                    nfa: nfa.clone(),
+                    state: nfa.execution_state(),
+                },
+                lexicon::RuleKind::Pattern(ref nfa) => Rule {
+                    id: r.id,
+                    kind: RuleKind::Pattern,
+                    nfa: nfa.clone(),
+                    state: nfa.execution_state(),
+                },
             })
             .collect::<Vec<_>>();
 
-        let matches = vec![None; rules.len()];
+        let matches = vec![];
 
         let mut ignore_chars = HashSet::new();
         for c in lexicon.ignore_chars.iter() {
@@ -93,6 +109,29 @@ impl<'input> Lexer<'input> {
         } else {
             self.pos.col += 1;
         }
+    }
+
+    fn best_match(&self) -> Option<(usize, usize, Position)> {
+        if self.matches.is_empty() {
+            return None;
+        }
+
+        let mut kind = RuleKind::Pattern;
+        let mut match_len = 0;
+        let mut rule_idx = 0;
+        let mut end_pos = Position::new(1, 1);
+
+        for (i, len, end) in self.matches.iter() {
+            let rule = &self.rules[*i];
+            if *len > match_len || (*len == match_len && rule.kind > kind) {
+                kind = rule.kind;
+                rule_idx = *i;
+                match_len = *len;
+                end_pos = *end;
+            }
+        }
+
+        Some((rule_idx, match_len, end_pos))
     }
 
     fn longest_match(
@@ -153,37 +192,24 @@ impl<'input> Lexer<'input> {
             }
         };
 
-        for (i, rule) in self.rules.iter_mut().enumerate() {
-            self.matches[i] = if rule_indicies.contains(i) {
-                Self::longest_match(&rule.nfa, input, &mut rule.state, pos)
-            } else {
-                None
-            };
-        }
+        self.matches.clear();
 
-        let mut longest = None;
-        let mut rule_idx = 0;
-        let mut end_pos = pos;
-
-        for (idx, m) in self.matches.iter().enumerate() {
-            if let Some((m, end)) = m {
-                if *m > longest.unwrap_or(0) {
-                    longest = Some(*m);
-                    rule_idx = idx;
-                    end_pos = *end;
-                }
+        for i in rule_indicies.iter() {
+            let rule = &mut self.rules[i];
+            if let Some((len, end)) = Self::longest_match(&rule.nfa, input, &mut rule.state, pos) {
+                self.matches.push((i, len, end));
             }
         }
 
-        if longest.is_none() {
+        let best = self.best_match();
+        if best.is_none() {
             self.advance(c);
-
             return Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]), pos);
         }
 
-        let len = longest.unwrap();
-
+        let (rule_idx, len, end_pos) = best.unwrap();
         let text = &self.input[self.offset..(self.offset + len)];
+
         self.offset += len;
         self.pos = end_pos;
 

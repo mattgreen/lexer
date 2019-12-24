@@ -1,21 +1,26 @@
 use std::collections::HashSet;
 
-use crate::nfa;
+use crate::nfa::{self, NFA};
 
 pub struct Lexicon {
     pub(crate) ignore_chars: HashSet<char>,
-    pub(crate) rules: Vec<Rule>,
+    pub(crate) rules: Vec<Rule<NFA>>,
 }
 
 #[derive(Default)]
 pub struct LexiconBuilder {
     ignore_chars: HashSet<char>,
-    rules: Vec<Rule>,
+    rules: Vec<Rule<String>>,
 }
 
-pub(crate) struct Rule {
-    id: usize,
-    nfa: nfa::NFA,
+pub(crate) struct Rule<T> {
+    pub(crate) id: usize,
+    pub(crate) kind: RuleKind<T>,
+}
+
+pub(crate) enum RuleKind<T> {
+    Pattern(T),
+    Literal(T),
 }
 
 pub type Error = nfa::CompileError;
@@ -28,11 +33,21 @@ impl LexiconBuilder {
         }
     }
 
-    pub fn build(self) -> Lexicon {
-        Lexicon {
-            ignore_chars: self.ignore_chars,
-            rules: self.rules,
+    pub fn build(self) -> Result<Lexicon, Error> {
+        let mut rules = vec![];
+        for r in self.rules.iter() {
+            let kind = match &r.kind {
+                RuleKind::Literal(literal) => RuleKind::Literal(NFA::from_literal(&literal)),
+                RuleKind::Pattern(pattern) => RuleKind::Pattern(nfa::compile(&pattern)?),
+            };
+
+            rules.push(Rule { id: r.id, kind });
         }
+
+        Ok(Lexicon {
+            ignore_chars: self.ignore_chars,
+            rules,
+        })
     }
 
     pub fn ignore_chars(mut self, chars: &str) -> Self {
@@ -43,21 +58,15 @@ impl LexiconBuilder {
         self
     }
 
-    pub fn rule(mut self, id: usize, pattern: &str) -> Result<Self, Error> {
-        let nfa = nfa::compile(pattern)?;
+    pub fn literal(mut self, id: usize, literal: &str) -> Self {
+        self.rules.push(Rule { id, kind: RuleKind::Literal(literal.into()) });
 
-        self.rules.push(Rule { id, nfa });
-
-        Ok(self)
-    }
-}
-
-impl Rule {
-    pub(crate) fn id(&self) -> usize {
-        self.id
+        self
     }
 
-    pub(crate) fn nfa(&self) -> &nfa::NFA {
-        &self.nfa
+    pub fn pattern(mut self, id: usize, pattern: &str) -> Self {
+        self.rules.push(Rule { id, kind: RuleKind::Pattern(pattern.into()) });
+
+        self
     }
 }
