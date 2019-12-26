@@ -1,6 +1,6 @@
 use std::char;
 
-use bit_set::BitSet;
+use fixedbitset::FixedBitSet;
 use hashbrown::{HashMap, HashSet};
 
 use crate::lexicon::{self, Lexicon};
@@ -13,7 +13,7 @@ pub struct Lexer<'input> {
     rules: Vec<Rule>,
     matches: Vec<(usize, usize, Position)>,
     ignore_chars: HashSet<char>,
-    prefixes: HashMap<char, BitSet>,
+    prefixes: HashMap<char, FixedBitSet>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -82,7 +82,7 @@ impl<'input> Lexer<'input> {
             for (low, high) in ranges {
                 for i in (low as u32)..=(high as u32) {
                     if let Some(c) = char::from_u32(i) {
-                        let rule_prefixes = prefixes.entry(c).or_insert_with(BitSet::new);
+                        let rule_prefixes = prefixes.entry(c).or_insert_with(|| FixedBitSet::with_capacity(rules.len()));
                         rule_prefixes.insert(rule_idx);
                     }
                 }
@@ -194,7 +194,7 @@ impl<'input> Lexer<'input> {
 
         self.matches.clear();
 
-        for i in rule_indicies.iter() {
+        for i in rule_indicies.ones() {
             let rule = &mut self.rules[i];
             if let Some((len, end)) = Self::longest_match(&rule.nfa, input, &mut rule.state, pos) {
                 self.matches.push((i, len, end));

@@ -9,7 +9,7 @@ pub fn starting_chars(nfa: &NFA) -> Vec<CharRange> {
 
     let mut ranges = HashSet::new();
 
-    for i in state.current.iter() {
+    for i in state.current.ones() {
         let s = &nfa.states[i];
         for t in s.transitions.iter() {
             match t {

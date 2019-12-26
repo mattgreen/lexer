@@ -5,7 +5,7 @@ pub use regex::{compile, Error as CompileError};
 
 use std::rc::Rc;
 
-use bit_set::BitSet;
+use fixedbitset::FixedBitSet;
 
 #[derive(Clone, Debug)]
 pub struct NFA {
@@ -29,7 +29,7 @@ pub struct ExecutionState {
     pub next: States,
 }
 
-pub type States = BitSet;
+pub type States = FixedBitSet;
 pub type CharRange = (char, char);
 type StateID = usize;
 
@@ -53,11 +53,11 @@ impl NFA {
     }
 
     pub fn has_match_state(&self, states: &States) -> bool {
-        states.iter().any(|i| self.states[i].accept)
+        states.ones().any(|i| self.states[i].accept)
     }
 
     pub fn is_dead_state(&self, states: &States) -> bool {
-        states.is_empty()
+        states.count_ones(..) == 0
     }
 
     pub fn execution_state(&self) -> ExecutionState {
@@ -68,7 +68,7 @@ impl NFA {
     }
 
     pub fn states(&self) -> States {
-        let mut states = BitSet::with_capacity(self.states.len());
+        let mut states = States::with_capacity(self.states.len());
         states.insert(0);
         states
     }
@@ -112,7 +112,7 @@ impl NFA {
     pub fn step(&self, current: &States, c: char, next: &mut States) {
         next.clear();
 
-        for i in current.iter() {
+        for i in current.ones() {
             let state = &self.states[i];
 
             if let Some(to) = state.transition_for(c) {
