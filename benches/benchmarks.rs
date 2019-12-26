@@ -49,21 +49,24 @@ fn bench_sqlite3(c: &mut Criterion) {
         .unwrap();
 
         let mut lexer = Lexer::new(&lexicon, &contents);
+        let mut count = 0;
 
         let mut group = c.benchmark_group("throughput");
         group.throughput(Throughput::Bytes(contents.len() as u64));
         group.bench_function("sqlite3.c", |b| {
             lexer.reset();
+            count = 0;
 
             b.iter(|| loop {
                 match lexer.next() {
-                    Next::Token(_, _, _) => {}
+                    Next::Token(_, _, _) => count += 1,
                     Next::Error(_, _) => {}
                     Next::End => break,
                 }
             })
         });
         group.finish();
+        println!("{}", count);
 }
 
 fn bench_kjv(c: &mut Criterion) {
@@ -80,21 +83,25 @@ fn bench_kjv(c: &mut Criterion) {
         .unwrap();
 
     let mut lexer = Lexer::new(&lexicon, &contents);
+    let mut count = 0;
 
     let mut group = c.benchmark_group("throughput");
     group.throughput(Throughput::Bytes(contents.len() as u64));
     group.bench_function("KJV", |b| {
         lexer.reset();
+        count = 0;
 
         b.iter(|| loop {
             match lexer.next() {
-                Next::Token(_, _, _) => {}
+                Next::Token(_, _, _) => count += 1,
                 Next::Error(_, _) => {}
                 Next::End => break,
             }
         })
     });
     group.finish();
+    println!("{}", count);
+
 }
 
 criterion_group! {
