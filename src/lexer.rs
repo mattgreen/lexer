@@ -2,9 +2,10 @@ use std::char;
 
 use fixedbitset::FixedBitSet;
 use hashbrown::{HashMap, HashSet};
+use regex::Regex;
 
 use crate::lexicon::{self, Lexicon};
-use crate::nfa::{analyze, ExecutionState, NFA};
+use crate::nfa::{analyze, compile, ExecutionState, NFA};
 
 pub struct Lexer<'input> {
     input: &'input str,
@@ -35,10 +36,12 @@ pub struct Position {
 }
 
 struct Rule {
-    kind: RuleKind,
     id: usize,
-    nfa: NFA,
-    state: ExecutionState,
+    kind: RuleKind,
+    regex: Regex,
+    pattern: String,
+    // nfa: NFA,
+    // state: ExecutionState,
 }
 
 #[derive(Clone, Copy, PartialEq, PartialOrd)]
@@ -53,18 +56,35 @@ impl<'input> Lexer<'input> {
             .rules
             .iter()
             .map(|r| match r.kind {
-                lexicon::RuleKind::Literal(ref nfa) => Rule {
-                    id: r.id,
-                    kind: RuleKind::Literal,
-                    nfa: nfa.clone(),
-                    state: nfa.execution_state(),
-                },
-                lexicon::RuleKind::Pattern(ref nfa) => Rule {
-                    id: r.id,
-                    kind: RuleKind::Pattern,
-                    nfa: nfa.clone(),
-                    state: nfa.execution_state(),
-                },
+                lexicon::RuleKind::Literal(ref pattern) => {
+                    let escaped = pattern.to_owned()
+                        .replace("\\", "\\\\")
+                        .replace("?", "\\?")
+                        .replace("(", "\\(")
+                        .replace(")", "\\)")
+                        .replace("{", "\\{")
+                        .replace("}", "\\}")
+                        .replace("[", "\\[")
+                        .replace("]", "\\]");
+
+                    let regex = format!("\\A(?:{})", escaped);
+                    Rule {
+                        id: r.id,
+                        kind: RuleKind::Literal,
+                        regex: Regex::new(&regex).unwrap(),
+                        pattern: pattern.into(),
+                    }
+                }
+                lexicon::RuleKind::Pattern(ref pattern) => {
+                    let regex = format!("\\A(:?{})", pattern);
+
+                    Rule {
+                        id: r.id,
+                        kind: RuleKind::Pattern,
+                        regex: Regex::new(&regex).unwrap(),
+                        pattern: pattern.into(),
+                    }
+                }
             })
             .collect::<Vec<_>>();
 
@@ -77,7 +97,11 @@ impl<'input> Lexer<'input> {
 
         let mut prefixes = HashMap::new();
         for (rule_idx, rule) in rules.iter().enumerate() {
-            let ranges = analyze::starting_chars(&rule.nfa);
+            let nfa = match rule.kind {
+                RuleKind::Literal => NFA::from_literal(&rule.pattern),
+                RuleKind::Pattern => NFA::from_regex(&rule.pattern).unwrap(),
+            };
+            let ranges = analyze::starting_chars(&nfa);
 
             for (low, high) in ranges {
                 for i in (low as u32)..=(high as u32) {
@@ -196,8 +220,17 @@ impl<'input> Lexer<'input> {
 
         for i in rule_indicies.ones() {
             let rule = &mut self.rules[i];
-            if let Some((len, end)) = Self::longest_match(&rule.nfa, input, &mut rule.state, pos) {
-                self.matches.push((i, len, end));
+            if let Some(m) = rule.regex.find_at(input, 0) {
+                let mut end = pos;
+                for c in input[..m.end()].chars() {
+                    if c == '\n' {
+                        end.line += 1;
+                        end.col = 1;
+                    } else {
+                        end.col += 1;
+                    }
+                }
+                self.matches.push((i, m.end(), end));
             }
         }
 

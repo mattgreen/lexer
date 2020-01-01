@@ -1,7 +1,7 @@
 pub mod analyze;
 mod regex;
 
-pub use regex::{compile, Error as CompileError};
+pub use crate::nfa::regex::{compile, Error as CompileError};
 
 use std::rc::Rc;
 
@@ -44,6 +44,10 @@ impl NFA {
         states.push(State::accept(&[], &[]));
 
         Self::new(states)
+    }
+
+    pub fn from_regex(pattern: &str) -> Result<NFA, CompileError> {
+        compile(pattern)
     }
 
     pub fn new(states: Vec<State>) -> NFA {

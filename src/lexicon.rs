@@ -1,10 +1,8 @@
 use std::collections::HashSet;
 
-use crate::nfa::{self, NFA};
-
 pub struct Lexicon {
     pub(crate) ignore_chars: HashSet<char>,
-    pub(crate) rules: Vec<Rule<NFA>>,
+    pub(crate) rules: Vec<Rule<String>>,
 }
 
 #[derive(Default)]
@@ -23,7 +21,8 @@ pub(crate) enum RuleKind<T> {
     Literal(T),
 }
 
-pub type Error = nfa::CompileError;
+#[derive(Debug)]
+pub enum Error {}
 
 impl LexiconBuilder {
     pub fn new() -> Self {
@@ -34,19 +33,9 @@ impl LexiconBuilder {
     }
 
     pub fn build(self) -> Result<Lexicon, Error> {
-        let mut rules = vec![];
-        for r in self.rules.iter() {
-            let kind = match &r.kind {
-                RuleKind::Literal(literal) => RuleKind::Literal(NFA::from_literal(&literal)),
-                RuleKind::Pattern(pattern) => RuleKind::Pattern(nfa::compile(&pattern)?),
-            };
-
-            rules.push(Rule { id: r.id, kind });
-        }
-
         Ok(Lexicon {
             ignore_chars: self.ignore_chars,
-            rules,
+            rules: self.rules,
         })
     }
 
