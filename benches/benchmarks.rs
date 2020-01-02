@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::prelude::*;
 
-use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, Criterion};
 
 use lexer::{Lexer, LexiconBuilder, Next};
 
@@ -51,21 +51,20 @@ fn bench_sqlite3(c: &mut Criterion) {
         let mut lexer = Lexer::new(&lexicon, &contents);
         let mut count = 0;
 
-        let mut group = c.benchmark_group("throughput");
-        group.throughput(Throughput::Bytes(contents.len() as u64));
-        group.bench_function("sqlite3.c", |b| {
+        c.bench_function("sqlite3.c", |b| {
             lexer.reset();
             count = 0;
 
-            b.iter(|| loop {
-                match lexer.next() {
-                    Next::Token(_, _, _) => count += 1,
-                    Next::Error(_, _) => {}
-                    Next::End => break,
+            b.iter(|| {
+                loop {
+                    match lexer.next() {
+                        Next::Token(_, _, _) => count += 1,
+                        Next::Error(_, _) => {}
+                        Next::End => break,
+                    }
                 }
             })
         });
-        group.finish();
         println!("{}", count);
 }
 
@@ -85,9 +84,7 @@ fn bench_kjv(c: &mut Criterion) {
     let mut lexer = Lexer::new(&lexicon, &contents);
     let mut count = 0;
 
-    let mut group = c.benchmark_group("throughput");
-    group.throughput(Throughput::Bytes(contents.len() as u64));
-    group.bench_function("KJV", |b| {
+    c.bench_function("KJV", |b| {
         lexer.reset();
         count = 0;
 
@@ -99,7 +96,6 @@ fn bench_kjv(c: &mut Criterion) {
             }
         })
     });
-    group.finish();
     println!("{}", count);
 
 }
