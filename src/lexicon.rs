@@ -48,7 +48,12 @@ impl LexiconBuilder {
 
             let starting_chars = analyze::starting_chars(&nfa);
 
-            rules.push(Rule { id, kind, pattern, starting_chars });
+            rules.push(Rule {
+                id,
+                kind,
+                pattern,
+                starting_chars,
+            });
         }
 
         Ok(Lexicon {
@@ -66,7 +71,7 @@ impl LexiconBuilder {
     }
 
     pub fn literal(mut self, id: RuleID, literal: &str) -> Self {
-        self.rules.push((id, RuleKind::Literal,literal.into()));
+        self.rules.push((id, RuleKind::Literal, literal.into()));
 
         self
     }

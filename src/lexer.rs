@@ -1,4 +1,5 @@
 use std::char;
+use std::iter::FromIterator;
 
 use fixedbitset::FixedBitSet;
 use hashbrown::{HashMap, HashSet};
@@ -45,41 +46,36 @@ impl<'input> Lexer<'input> {
         let rules = lexicon
             .rules
             .iter()
-            .map(|r| match r.kind {
-                RuleKind::Literal => {
-                    let escaped = r.pattern.to_owned()
-                        .replace("\\", "\\\\")
-                        .replace("?", "\\?")
-                        .replace("(", "\\(")
-                        .replace(")", "\\)")
-                        .replace("{", "\\{")
-                        .replace("}", "\\}")
-                        .replace("[", "\\[")
-                        .replace("]", "\\]");
-
-                    let regex = format!("\\A(?:{})", escaped);
-                    Rule {
-                        id: r.id,
-                        kind: RuleKind::Literal,
-                        regex: Regex::new(&regex).unwrap(),
+            .map(|r| {
+                let pattern = {
+                    if r.kind == RuleKind::Literal {
+                        r.pattern
+                            .to_owned()
+                            .replace("\\", "\\\\")
+                            .replace("?", "\\?")
+                            .replace("(", "\\(")
+                            .replace(")", "\\)")
+                            .replace("{", "\\{")
+                            .replace("}", "\\}")
+                            .replace("[", "\\[")
+                            .replace("]", "\\]")
+                    } else {
+                        r.pattern.to_owned()
                     }
-                }
-                RuleKind::Pattern => {
-                    let regex = format!("\\A(:?{})", r.pattern);
+                };
 
-                    Rule {
-                        id: r.id,
-                        kind: RuleKind::Pattern,
-                        regex: Regex::new(&regex).unwrap(),
-                    }
+                let anchored = format!("\\A(?:{})", pattern);
+                let regex = Regex::new(&anchored).unwrap();
+
+                Rule {
+                    id: r.id,
+                    kind: r.kind,
+                    regex,
                 }
             })
             .collect::<Vec<_>>();
 
-        let mut ignore_chars = HashSet::new();
-        for c in lexicon.ignore_chars.iter() {
-            ignore_chars.insert(*c);
-        }
+        let ignore_chars = HashSet::from_iter(lexicon.ignore_chars.iter().map(|c| *c));
 
         let mut prefixes = HashMap::new();
         for (rule_idx, rule) in lexicon.rules.iter().enumerate() {

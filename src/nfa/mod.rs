@@ -38,7 +38,10 @@ impl NFA {
         let mut states = vec![];
 
         for c in literal.chars() {
-            states.push(State::new(&[Transition::Ranges(vec![(c,c)], states.len() + 1)], &[]));
+            states.push(State::new(
+                &[Transition::Ranges(vec![(c, c)], states.len() + 1)],
+                &[],
+            ));
         }
 
         states.push(State::accept(&[], &[]));

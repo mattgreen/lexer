@@ -106,33 +106,31 @@ fn compile_hir(hir: &Hir, states: &mut Vec<State>) -> Result<(), Error> {
                     compile_hir(&rep.hir, states)?;
                     states.push(State::new(&[], &[start, states.len() + 1]));
                 }
-                hir::RepetitionKind::Range(ref range) => {
-                    match range {
-                        hir::RepetitionRange::Exactly(n) => {
-                            for _ in 0..*n {
-                                compile_hir(&rep.hir, states)?
-                            }
-                        }
-                        hir::RepetitionRange::AtLeast(n) => {
-                            for _ in 0..*n {
-                                compile_hir(&rep.hir, states)?;
-                            }
-                            states.push(State::new(&[], &[states.len() - 1, states.len() + 1]));
-                        }
-                        hir::RepetitionRange::Bounded(low, high) => {
-                            for _ in 0..*low {
-                                compile_hir(&rep.hir, states)?;
-                            }
-
-                            for _ in 0..(*high - *low) {
-                                let idx = states.len();
-                                states.push(State::new(&[], &[0, 0]));
-                                compile_hir(&rep.hir, states)?;
-                                states[idx] = State::new(&[], &[idx + 1, states.len()]);
-                            }
+                hir::RepetitionKind::Range(ref range) => match range {
+                    hir::RepetitionRange::Exactly(n) => {
+                        for _ in 0..*n {
+                            compile_hir(&rep.hir, states)?
                         }
                     }
-                }
+                    hir::RepetitionRange::AtLeast(n) => {
+                        for _ in 0..*n {
+                            compile_hir(&rep.hir, states)?;
+                        }
+                        states.push(State::new(&[], &[states.len() - 1, states.len() + 1]));
+                    }
+                    hir::RepetitionRange::Bounded(low, high) => {
+                        for _ in 0..*low {
+                            compile_hir(&rep.hir, states)?;
+                        }
+
+                        for _ in 0..(*high - *low) {
+                            let idx = states.len();
+                            states.push(State::new(&[], &[0, 0]));
+                            compile_hir(&rep.hir, states)?;
+                            states[idx] = State::new(&[], &[idx + 1, states.len()]);
+                        }
+                    }
+                },
             }
         }
         HirKind::WordBoundary(_) => {
