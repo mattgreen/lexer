@@ -4,15 +4,14 @@ use fixedbitset::FixedBitSet;
 use hashbrown::{HashMap, HashSet};
 use regex::Regex;
 
-use crate::lexicon::{self, Lexicon};
-use crate::nfa::{analyze, compile, ExecutionState, NFA};
+use crate::lexicon::{Lexicon, RuleID, RuleKind};
 
 pub struct Lexer<'input> {
     input: &'input str,
     offset: usize,
     pos: Position,
     rules: Vec<Rule>,
-    matches: Vec<(usize, usize, Position)>,
+    matches: Vec<(usize, usize)>,
     ignore_chars: HashSet<char>,
     prefixes: HashMap<char, FixedBitSet>,
 }
@@ -39,15 +38,6 @@ struct Rule {
     id: usize,
     kind: RuleKind,
     regex: Regex,
-    pattern: String,
-    // nfa: NFA,
-    // state: ExecutionState,
-}
-
-#[derive(Clone, Copy, PartialEq, PartialOrd)]
-enum RuleKind {
-    Pattern,
-    Literal,
 }
 
 impl<'input> Lexer<'input> {
@@ -56,8 +46,8 @@ impl<'input> Lexer<'input> {
             .rules
             .iter()
             .map(|r| match r.kind {
-                lexicon::RuleKind::Literal(ref pattern) => {
-                    let escaped = pattern.to_owned()
+                RuleKind::Literal => {
+                    let escaped = r.pattern.to_owned()
                         .replace("\\", "\\\\")
                         .replace("?", "\\?")
                         .replace("(", "\\(")
@@ -72,23 +62,19 @@ impl<'input> Lexer<'input> {
                         id: r.id,
                         kind: RuleKind::Literal,
                         regex: Regex::new(&regex).unwrap(),
-                        pattern: pattern.into(),
                     }
                 }
-                lexicon::RuleKind::Pattern(ref pattern) => {
-                    let regex = format!("\\A(:?{})", pattern);
+                RuleKind::Pattern => {
+                    let regex = format!("\\A(:?{})", r.pattern);
 
                     Rule {
                         id: r.id,
                         kind: RuleKind::Pattern,
                         regex: Regex::new(&regex).unwrap(),
-                        pattern: pattern.into(),
                     }
                 }
             })
             .collect::<Vec<_>>();
-
-        let matches = vec![];
 
         let mut ignore_chars = HashSet::new();
         for c in lexicon.ignore_chars.iter() {
@@ -96,20 +82,12 @@ impl<'input> Lexer<'input> {
         }
 
         let mut prefixes = HashMap::new();
-        for (rule_idx, rule) in rules.iter().enumerate() {
-            let nfa = match rule.kind {
-                RuleKind::Literal => NFA::from_literal(&rule.pattern),
-                RuleKind::Pattern => NFA::from_regex(&rule.pattern).unwrap(),
-            };
-            let ranges = analyze::starting_chars(&nfa);
-
-            for (low, high) in ranges {
-                for i in (low as u32)..=(high as u32) {
-                    if let Some(c) = char::from_u32(i) {
-                        let rule_prefixes = prefixes.entry(c).or_insert_with(|| FixedBitSet::with_capacity(rules.len()));
-                        rule_prefixes.insert(rule_idx);
-                    }
-                }
+        for (rule_idx, rule) in lexicon.rules.iter().enumerate() {
+            for c in rule.starting_chars.iter() {
+                prefixes
+                    .entry(*c)
+                    .or_insert_with(|| FixedBitSet::with_capacity(rules.len()))
+                    .insert(rule_idx);
             }
         }
 
@@ -118,7 +96,7 @@ impl<'input> Lexer<'input> {
             offset: 0,
             pos: Position { line: 1, col: 1 },
             rules,
-            matches,
+            matches: Vec::with_capacity(lexicon.rules.len()),
             ignore_chars,
             prefixes,
         }
@@ -135,59 +113,25 @@ impl<'input> Lexer<'input> {
         }
     }
 
-    fn best_match(&self) -> Option<(usize, usize, Position)> {
+    fn best_match(&self) -> Option<(RuleID, usize)> {
         if self.matches.is_empty() {
             return None;
         }
 
         let mut kind = RuleKind::Pattern;
         let mut match_len = 0;
-        let mut rule_idx = 0;
-        let mut end_pos = Position::new(1, 1);
+        let mut rule_id = 0;
 
-        for (i, len, end) in self.matches.iter() {
+        for (i, len) in self.matches.iter() {
             let rule = &self.rules[*i];
             if *len > match_len || (*len == match_len && rule.kind > kind) {
                 kind = rule.kind;
-                rule_idx = *i;
+                rule_id = rule.id;
                 match_len = *len;
-                end_pos = *end;
             }
         }
 
-        Some((rule_idx, match_len, end_pos))
-    }
-
-    fn longest_match(
-        nfa: &NFA,
-        input: &str,
-        state: &mut ExecutionState,
-        start: Position,
-    ) -> Option<(usize, Position)> {
-        let mut end = start;
-
-        nfa.initialize_states(&mut state.current);
-
-        let mut match_len = None;
-        for (len, c) in input.chars().enumerate() {
-            nfa.step(&state.current, c, &mut state.next);
-            if c == '\n' {
-                end.line += 1;
-                end.col = 1;
-            } else {
-                end.col += 1;
-            }
-
-            if nfa.has_match_state(&state.next) {
-                match_len = Some((len + 1, end));
-            } else if nfa.is_dead_state(&state.next) {
-                break;
-            }
-
-            std::mem::swap(&mut state.current, &mut state.next);
-        }
-
-        match_len
+        Some((rule_id, match_len))
     }
 
     pub fn next(&mut self) -> Next {
@@ -219,18 +163,10 @@ impl<'input> Lexer<'input> {
         self.matches.clear();
 
         for i in rule_indicies.ones() {
-            let rule = &mut self.rules[i];
+            let rule = &self.rules[i];
+
             if let Some(m) = rule.regex.find_at(input, 0) {
-                let mut end = pos;
-                for c in input[..m.end()].chars() {
-                    if c == '\n' {
-                        end.line += 1;
-                        end.col = 1;
-                    } else {
-                        end.col += 1;
-                    }
-                }
-                self.matches.push((i, m.end(), end));
+                self.matches.push((i, m.end()));
             }
         }
 
@@ -240,13 +176,23 @@ impl<'input> Lexer<'input> {
             return Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]), pos);
         }
 
-        let (rule_idx, len, end_pos) = best.unwrap();
+        let (rule_id, len) = best.unwrap();
         let text = &self.input[self.offset..(self.offset + len)];
+
+        let mut end_pos = self.pos;
+        for c in input[..len].chars() {
+            if c == '\n' {
+                end_pos.line += 1;
+                end_pos.col = 1;
+            } else {
+                end_pos.col += 1;
+            }
+        }
 
         self.offset += len;
         self.pos = end_pos;
 
-        Next::Token(self.rules[rule_idx].id, text, pos)
+        Next::Token(rule_id, text, pos)
     }
 
     pub fn reset(&mut self) {

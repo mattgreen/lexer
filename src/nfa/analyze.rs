@@ -1,13 +1,14 @@
-use std::collections::HashSet;
-use std::iter::FromIterator;
+use std::char;
 
-use super::{CharRange, Transition, NFA};
+use hashbrown::HashSet;
 
-pub fn starting_chars(nfa: &NFA) -> Vec<CharRange> {
+use super::{Transition, NFA};
+
+pub fn starting_chars(nfa: &NFA) -> HashSet<char> {
     let mut state = nfa.execution_state();
     nfa.initialize_states(&mut state.current);
 
-    let mut ranges = HashSet::new();
+    let mut chars = HashSet::new();
 
     for i in state.current.ones() {
         let s = &nfa.states[i];
@@ -15,12 +16,16 @@ pub fn starting_chars(nfa: &NFA) -> Vec<CharRange> {
             match t {
                 Transition::Ranges(r, _) => {
                     for (low, high) in r.iter() {
-                        ranges.insert((*low, *high));
+                        for i in (*low as u32)..=(*high as u32) {
+                            if let Some(c) = char::from_u32(i) {
+                                chars.insert(c);
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
-    Vec::from_iter(ranges)
+    chars
 }

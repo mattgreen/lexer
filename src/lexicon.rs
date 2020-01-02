@@ -1,28 +1,34 @@
-use std::collections::HashSet;
+use hashbrown::HashSet;
+
+use crate::nfa::{self, analyze, NFA};
 
 pub struct Lexicon {
     pub(crate) ignore_chars: HashSet<char>,
-    pub(crate) rules: Vec<Rule<String>>,
+    pub(crate) rules: Vec<Rule>,
 }
 
 #[derive(Default)]
 pub struct LexiconBuilder {
     ignore_chars: HashSet<char>,
-    rules: Vec<Rule<String>>,
+    rules: Vec<(RuleID, RuleKind, String)>,
 }
 
-pub(crate) struct Rule<T> {
-    pub(crate) id: usize,
-    pub(crate) kind: RuleKind<T>,
+pub(crate) struct Rule {
+    pub(crate) id: RuleID,
+    pub(crate) kind: RuleKind,
+    pub(crate) pattern: String,
+    pub(crate) starting_chars: HashSet<char>,
 }
 
-pub(crate) enum RuleKind<T> {
-    Pattern(T),
-    Literal(T),
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
+pub(crate) enum RuleKind {
+    Pattern,
+    Literal,
 }
 
-#[derive(Debug)]
-pub enum Error {}
+pub type RuleID = usize;
+
+pub type Error = nfa::CompileError;
 
 impl LexiconBuilder {
     pub fn new() -> Self {
@@ -33,9 +39,21 @@ impl LexiconBuilder {
     }
 
     pub fn build(self) -> Result<Lexicon, Error> {
+        let mut rules = vec![];
+        for (id, kind, pattern) in self.rules {
+            let nfa = match kind {
+                RuleKind::Literal => NFA::from_literal(&pattern),
+                RuleKind::Pattern => NFA::from_regex(&pattern)?,
+            };
+
+            let starting_chars = analyze::starting_chars(&nfa);
+
+            rules.push(Rule { id, kind, pattern, starting_chars });
+        }
+
         Ok(Lexicon {
             ignore_chars: self.ignore_chars,
-            rules: self.rules,
+            rules,
         })
     }
 
@@ -47,14 +65,14 @@ impl LexiconBuilder {
         self
     }
 
-    pub fn literal(mut self, id: usize, literal: &str) -> Self {
-        self.rules.push(Rule { id, kind: RuleKind::Literal(literal.into()) });
+    pub fn literal(mut self, id: RuleID, literal: &str) -> Self {
+        self.rules.push((id, RuleKind::Literal,literal.into()));
 
         self
     }
 
-    pub fn pattern(mut self, id: usize, pattern: &str) -> Self {
-        self.rules.push(Rule { id, kind: RuleKind::Pattern(pattern.into()) });
+    pub fn pattern(mut self, id: RuleID, pattern: &str) -> Self {
+        self.rules.push((id, RuleKind::Pattern, pattern.into()));
 
         self
     }
