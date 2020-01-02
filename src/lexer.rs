@@ -37,6 +37,7 @@ pub struct Position {
 struct Rule {
     id: usize,
     precedence: u8,
+    single_char: bool,
     regex: Regex,
 }
 
@@ -52,6 +53,7 @@ impl<'input> Lexer<'input> {
                 Rule {
                     id: r.id,
                     precedence: r.precedence,
+                    single_char: r.pattern.chars().count() == 1,
                     regex,
                 }
             })
@@ -138,6 +140,10 @@ impl<'input> Lexer<'input> {
 
         for i in rule_indicies.ones() {
             let rule = &self.rules[i];
+            if rule.single_char {
+                self.matches.push((i, c.len_utf8()));
+                continue;
+            }
 
             if let Some(m) = rule.regex.find_at(input, 0) {
                 self.matches.push((i, m.end()));
