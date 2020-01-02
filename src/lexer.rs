@@ -5,7 +5,7 @@ use fixedbitset::FixedBitSet;
 use hashbrown::{HashMap, HashSet};
 use regex::Regex;
 
-use crate::lexicon::{Lexicon, RuleID, RuleKind};
+use crate::lexicon::{Lexicon, RuleID};
 
 pub struct Lexer<'input> {
     input: &'input str,
@@ -36,7 +36,7 @@ pub struct Position {
 
 struct Rule {
     id: usize,
-    kind: RuleKind,
+    precedence: u8,
     regex: Regex,
 }
 
@@ -46,29 +46,12 @@ impl<'input> Lexer<'input> {
             .rules
             .iter()
             .map(|r| {
-                let pattern = {
-                    if r.kind == RuleKind::Literal {
-                        r.pattern
-                            .to_owned()
-                            .replace("\\", "\\\\")
-                            .replace("?", "\\?")
-                            .replace("(", "\\(")
-                            .replace(")", "\\)")
-                            .replace("{", "\\{")
-                            .replace("}", "\\}")
-                            .replace("[", "\\[")
-                            .replace("]", "\\]")
-                    } else {
-                        r.pattern.to_owned()
-                    }
-                };
-
-                let anchored = format!("\\A(?:{})", pattern);
+                let anchored = format!("\\A(?:{})", r.pattern);
                 let regex = Regex::new(&anchored).unwrap();
 
                 Rule {
                     id: r.id,
-                    kind: r.kind,
+                    precedence: r.precedence,
                     regex,
                 }
             })
@@ -114,14 +97,14 @@ impl<'input> Lexer<'input> {
             return None;
         }
 
-        let mut kind = RuleKind::Pattern;
+        let mut precedence = 0;
         let mut match_len = 0;
         let mut rule_id = 0;
 
         for (i, len) in matches.iter() {
             let rule = &self.rules[*i];
-            if *len > match_len || (*len == match_len && rule.kind > kind) {
-                kind = rule.kind;
+            if *len > match_len || (*len == match_len && rule.precedence > precedence) {
+                precedence = rule.precedence;
                 rule_id = rule.id;
                 match_len = *len;
             }

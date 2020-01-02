@@ -1,6 +1,6 @@
 use hashbrown::HashSet;
 
-use crate::nfa::{self, analyze, NFA};
+use crate::nfa::{analyze, CompileError, NFA};
 
 pub struct Lexicon {
     pub(crate) ignore_chars: HashSet<char>,
@@ -15,7 +15,7 @@ pub struct LexiconBuilder {
 
 pub(crate) struct Rule {
     pub(crate) id: RuleID,
-    pub(crate) kind: RuleKind,
+    pub(crate) precedence: u8,
     pub(crate) pattern: String,
     pub(crate) starting_chars: HashSet<char>,
 }
@@ -28,7 +28,7 @@ pub(crate) enum RuleKind {
 
 pub type RuleID = usize;
 
-pub type Error = nfa::CompileError;
+pub type Error = CompileError;
 
 impl LexiconBuilder {
     pub fn new() -> Self {
@@ -41,16 +41,13 @@ impl LexiconBuilder {
     pub fn build(self) -> Result<Lexicon, Error> {
         let mut rules = vec![];
         for (id, kind, pattern) in self.rules {
-            let nfa = match kind {
-                RuleKind::Literal => NFA::from_literal(&pattern),
-                RuleKind::Pattern => NFA::from_regex(&pattern)?,
-            };
-
+            let nfa = NFA::from_regex(&pattern)?;
             let starting_chars = analyze::starting_chars(&nfa);
+            let precedence = if kind == RuleKind::Literal { 1 } else { 0 };
 
             rules.push(Rule {
                 id,
-                kind,
+                precedence,
                 pattern,
                 starting_chars,
             });
@@ -71,7 +68,18 @@ impl LexiconBuilder {
     }
 
     pub fn literal(mut self, id: RuleID, literal: &str) -> Self {
-        self.rules.push((id, RuleKind::Literal, literal.into()));
+        let pattern = literal
+            .to_owned()
+            .replace("\\", "\\\\")
+            .replace("?", "\\?")
+            .replace("(", "\\(")
+            .replace(")", "\\)")
+            .replace("{", "\\{")
+            .replace("}", "\\}")
+            .replace("[", "\\[")
+            .replace("]", "\\]");
+
+        self.rules.push((id, RuleKind::Literal, pattern));
 
         self
     }
