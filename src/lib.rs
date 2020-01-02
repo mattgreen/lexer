@@ -24,8 +24,8 @@ mod tests {
         let lexicon = simple_lexicon();
         let mut lexer = Lexer::new(&lexicon, "");
 
-        assert_eq!(lexer.next(), Next::End);
-        assert_eq!(lexer.next(), Next::End);
+        assert_eq!(lexer.next(), None);
+        assert_eq!(lexer.next(), None);
     }
 
     #[test]
@@ -33,14 +33,14 @@ mod tests {
         let lexicon = simple_lexicon();
         let mut lexer = Lexer::new(&lexicon, "a b 1 -     ");
 
-        assert_eq!(lexer.next(), Next::Token(0, "a", Position::new(1, 1)));
-        assert_eq!(lexer.next(), Next::Token(0, "b", Position::new(1, 3)));
-        assert_eq!(lexer.next(), Next::Token(1, "1", Position::new(1, 5)));
+        assert_eq!(lexer.next(), Some(Next::Token(0, "a", Position::new(1, 1))));
+        assert_eq!(lexer.next(), Some(Next::Token(0, "b", Position::new(1, 3))));
+        assert_eq!(lexer.next(), Some(Next::Token(1, "1", Position::new(1, 5))));
         assert_eq!(
             lexer.next(),
-            Next::Error(Error::UnexpectedChar("-"), Position::new(1, 7))
+            Some(Next::Error(Error::UnexpectedChar("-"), Position::new(1, 7)))
         );
-        assert_eq!(lexer.next(), Next::End);
+        assert_eq!(lexer.next(), None);
     }
 
     #[test]
@@ -48,7 +48,7 @@ mod tests {
         let lexicon = simple_lexicon();
         let mut lexer = Lexer::new(&lexicon, "       ");
 
-        assert_eq!(lexer.next(), Next::End);
+        assert_eq!(lexer.next(), None);
     }
 
     #[test]
@@ -56,10 +56,10 @@ mod tests {
         let lexicon = simple_lexicon();
         let mut lexer = Lexer::new(&lexicon, "   abc AAaa 123   ");
 
-        assert_eq!(lexer.next(), Next::Token(0, "abc", Position::new(1, 4)));
-        assert_eq!(lexer.next(), Next::Token(0, "AAaa", Position::new(1, 8)));
-        assert_eq!(lexer.next(), Next::Token(1, "123", Position::new(1, 13)));
-        assert_eq!(lexer.next(), Next::End);
+        assert_eq!(lexer.next(), Some(Next::Token(0, "abc", Position::new(1, 4))));
+        assert_eq!(lexer.next(), Some(Next::Token(0, "AAaa", Position::new(1, 8))));
+        assert_eq!(lexer.next(), Some(Next::Token(1, "123", Position::new(1, 13))));
+        assert_eq!(lexer.next(), None);
     }
 
     #[test]
@@ -67,10 +67,10 @@ mod tests {
         let lexicon = simple_lexicon();
         let mut lexer = Lexer::new(&lexicon, "   abc if iffy 123   ");
 
-        assert_eq!(lexer.next(), Next::Token(0, "abc", Position::new(1, 4)));
-        assert_eq!(lexer.next(), Next::Token(2, "if", Position::new(1, 8)));
-        assert_eq!(lexer.next(), Next::Token(0, "iffy", Position::new(1, 11)));
-        assert_eq!(lexer.next(), Next::Token(1, "123", Position::new(1, 16)));
-        assert_eq!(lexer.next(), Next::End);
+        assert_eq!(lexer.next(), Some(Next::Token(0, "abc", Position::new(1, 4))));
+        assert_eq!(lexer.next(), Some(Next::Token(2, "if", Position::new(1, 8))));
+        assert_eq!(lexer.next(), Some(Next::Token(0, "iffy", Position::new(1, 11))));
+        assert_eq!(lexer.next(), Some(Next::Token(1, "123", Position::new(1, 16))));
+        assert_eq!(lexer.next(), None);
     }
 }

@@ -20,7 +20,6 @@ pub struct Lexer<'input> {
 #[derive(Debug, PartialEq)]
 pub enum Next<'input> {
     Token(usize, &'input str, Position),
-    End,
     Error(Error<'input>, Position),
 }
 
@@ -109,6 +108,7 @@ impl<'input> Lexer<'input> {
         }
     }
 
+
     fn best_match(&self, matches: &[(usize, usize)]) -> Option<(RuleID, usize)> {
         if matches.is_empty() {
             return None;
@@ -130,18 +130,14 @@ impl<'input> Lexer<'input> {
         Some((rule_id, match_len))
     }
 
-    pub fn next(&mut self) -> Next {
+    pub fn next(&mut self) -> Option<Next> {
         let c = loop {
-            match self.input[self.offset..].chars().nth(0) {
-                Some(ch) => {
-                    if !self.ignore_chars.contains(&ch) {
-                        break ch;
-                    }
-
-                    self.advance(ch);
-                }
-                None => return Next::End,
+            let ch = self.input[self.offset..].chars().nth(0)?;
+            if !self.ignore_chars.contains(&ch) {
+                break ch;
             }
+
+            self.advance(ch);
         };
 
         let input = &self.input[self.offset..];
@@ -151,8 +147,7 @@ impl<'input> Lexer<'input> {
             Some(indicies) => indicies,
             None => {
                 self.advance(c);
-
-                return Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]), pos);
+                return Some(Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]), pos));
             }
         };
 
@@ -169,7 +164,7 @@ impl<'input> Lexer<'input> {
         let best = self.best_match(&self.matches);
         if best.is_none() {
             self.advance(c);
-            return Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]), pos);
+            return Some(Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]), pos));
         }
 
         let (rule_id, len) = best.unwrap();
@@ -179,7 +174,7 @@ impl<'input> Lexer<'input> {
             self.advance(c);
         }
 
-        Next::Token(rule_id, text, pos)
+        Some(Next::Token(rule_id, text, pos))
     }
 
     pub fn reset(&mut self) {

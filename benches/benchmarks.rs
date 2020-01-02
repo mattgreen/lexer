@@ -55,11 +55,10 @@ fn bench_sqlite3(c: &mut Criterion) {
         lexer.reset();
         count = 0;
 
-        b.iter(|| loop {
-            match lexer.next() {
+        b.iter(|| while let Some(t) = lexer.next() {
+            match t {
                 Next::Token(_, _, _) => count += 1,
                 Next::Error(_, _) => {}
-                Next::End => break,
             }
         })
     });
@@ -86,11 +85,10 @@ fn bench_kjv(c: &mut Criterion) {
         lexer.reset();
         count = 0;
 
-        b.iter(|| loop {
-            match lexer.next() {
+        b.iter(|| while let Some(t) = lexer.next() {
+            match t {
                 Next::Token(_, _, _) => count += 1,
                 Next::Error(_, _) => {}
-                Next::End => break,
             }
         })
     });
