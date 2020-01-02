@@ -75,7 +75,7 @@ impl<'input> Lexer<'input> {
             })
             .collect::<Vec<_>>();
 
-        let ignore_chars = HashSet::from_iter(lexicon.ignore_chars.iter().map(|c| *c));
+        let ignore_chars = HashSet::from_iter(lexicon.ignore_chars.iter().copied());
 
         let mut prefixes = HashMap::new();
         for (rule_idx, rule) in lexicon.rules.iter().enumerate() {
@@ -109,8 +109,8 @@ impl<'input> Lexer<'input> {
         }
     }
 
-    fn best_match(&self) -> Option<(RuleID, usize)> {
-        if self.matches.is_empty() {
+    fn best_match(&self, matches: &[(usize, usize)]) -> Option<(RuleID, usize)> {
+        if matches.is_empty() {
             return None;
         }
 
@@ -118,7 +118,7 @@ impl<'input> Lexer<'input> {
         let mut match_len = 0;
         let mut rule_id = 0;
 
-        for (i, len) in self.matches.iter() {
+        for (i, len) in matches.iter() {
             let rule = &self.rules[*i];
             if *len > match_len || (*len == match_len && rule.kind > kind) {
                 kind = rule.kind;
@@ -166,7 +166,7 @@ impl<'input> Lexer<'input> {
             }
         }
 
-        let best = self.best_match();
+        let best = self.best_match(&self.matches);
         if best.is_none() {
             self.advance(c);
             return Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]), pos);
@@ -175,18 +175,9 @@ impl<'input> Lexer<'input> {
         let (rule_id, len) = best.unwrap();
         let text = &self.input[self.offset..(self.offset + len)];
 
-        let mut end_pos = self.pos;
         for c in input[..len].chars() {
-            if c == '\n' {
-                end_pos.line += 1;
-                end_pos.col = 1;
-            } else {
-                end_pos.col += 1;
-            }
+            self.advance(c);
         }
-
-        self.offset += len;
-        self.pos = end_pos;
 
         Next::Token(rule_id, text, pos)
     }
