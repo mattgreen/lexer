@@ -1,3 +1,4 @@
+use std::iter::FromIterator;
 use hashbrown::HashSet;
 
 use crate::nfa::{analyze, CompileError, NFA};
@@ -15,6 +16,7 @@ pub struct LexiconBuilder {
 
 pub(crate) struct Rule {
     pub(crate) id: RuleID,
+    pub(crate) kind: RuleKind,
     pub(crate) precedence: u8,
     pub(crate) pattern: String,
     pub(crate) starting_chars: HashSet<char>,
@@ -28,7 +30,11 @@ pub(crate) enum RuleKind {
 
 pub type RuleID = usize;
 
-pub type Error = CompileError;
+#[derive(Debug)]
+pub enum Error {
+    InvalidRegex(CompileError),
+    EmptyLiteral(usize),
+}
 
 impl LexiconBuilder {
     pub fn new() -> Self {
@@ -41,12 +47,21 @@ impl LexiconBuilder {
     pub fn build(self) -> Result<Lexicon, Error> {
         let mut rules = vec![];
         for (id, kind, pattern) in self.rules {
-            let nfa = NFA::from_regex(&pattern)?;
-            let starting_chars = analyze::starting_chars(&nfa);
+            let starting_chars = match kind {
+                RuleKind::Pattern => {
+                    let nfa = NFA::from_regex(&pattern).map_err(Error::InvalidRegex)?;
+                    analyze::starting_chars(&nfa)
+                },
+                RuleKind::Literal => {
+                    let c = pattern.chars().nth(0).ok_or(Error::EmptyLiteral(id))?;
+                    HashSet::from_iter(std::iter::once(c))
+                }
+            };
             let precedence = if kind == RuleKind::Literal { 1 } else { 0 };
 
             rules.push(Rule {
                 id,
+                kind,
                 precedence,
                 pattern,
                 starting_chars,
@@ -68,18 +83,7 @@ impl LexiconBuilder {
     }
 
     pub fn literal(mut self, id: RuleID, literal: &str) -> Self {
-        let pattern = literal
-            .to_owned()
-            .replace("\\", "\\\\")
-            .replace("?", "\\?")
-            .replace("(", "\\(")
-            .replace(")", "\\)")
-            .replace("{", "\\{")
-            .replace("}", "\\}")
-            .replace("[", "\\[")
-            .replace("]", "\\]");
-
-        self.rules.push((id, RuleKind::Literal, pattern));
+        self.rules.push((id, RuleKind::Literal, literal.into()));
 
         self
     }

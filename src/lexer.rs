@@ -5,7 +5,7 @@ use fixedbitset::FixedBitSet;
 use hashbrown::{HashMap, HashSet};
 use regex::Regex;
 
-use crate::lexicon::{Lexicon, RuleID};
+use crate::lexicon::{Lexicon, RuleID, RuleKind};
 
 pub struct Lexer<'input> {
     input: &'input str,
@@ -37,8 +37,12 @@ pub struct Position {
 struct Rule {
     id: usize,
     precedence: u8,
-    single_char: bool,
-    regex: Regex,
+    pattern: Pattern,
+}
+
+enum Pattern {
+    Literal(String),
+    Regex(Regex),
 }
 
 impl<'input> Lexer<'input> {
@@ -47,14 +51,19 @@ impl<'input> Lexer<'input> {
             .rules
             .iter()
             .map(|r| {
-                let anchored = format!("\\A(?:{})", r.pattern);
-                let regex = Regex::new(&anchored).unwrap();
+                let pattern = if r.kind == RuleKind::Literal {
+                    Pattern::Literal(r.pattern.clone())
+                } else {
+                    let anchored = format!("\\A(?:{})", r.pattern);
+                    let regex = Regex::new(&anchored).unwrap();
+
+                    Pattern::Regex(regex)
+                };
 
                 Rule {
                     id: r.id,
                     precedence: r.precedence,
-                    single_char: r.pattern.chars().count() == 1,
-                    regex,
+                    pattern,
                 }
             })
             .collect::<Vec<_>>();
@@ -140,13 +149,18 @@ impl<'input> Lexer<'input> {
 
         for i in rule_indicies.ones() {
             let rule = &self.rules[i];
-            if rule.single_char {
-                self.matches.push((i, c.len_utf8()));
-                continue;
-            }
 
-            if let Some(m) = rule.regex.find_at(input, 0) {
-                self.matches.push((i, m.end()));
+            match &rule.pattern {
+                Pattern::Literal(literal) => {
+                    if c.len_utf8() == literal.len() || *literal == input[..literal.len()] {
+                        self.matches.push((i, literal.len()));
+                    }
+                },
+                Pattern::Regex(regex) => {
+                    if let Some(m) = regex.find_at(input, 0) {
+                        self.matches.push((i, m.end()));
+                    }
+                },
             }
         }
 

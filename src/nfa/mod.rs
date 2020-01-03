@@ -34,21 +34,6 @@ pub type CharRange = (char, char);
 type StateID = usize;
 
 impl NFA {
-    pub fn from_literal(literal: &str) -> NFA {
-        let mut states = vec![];
-
-        for c in literal.chars() {
-            states.push(State::new(
-                &[Transition::Ranges(vec![(c, c)], states.len() + 1)],
-                &[],
-            ));
-        }
-
-        states.push(State::accept(&[], &[]));
-
-        Self::new(states)
-    }
-
     pub fn from_regex(pattern: &str) -> Result<NFA, CompileError> {
         compile(pattern)
     }
