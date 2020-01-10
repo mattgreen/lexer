@@ -51,8 +51,10 @@ fn bench_iter(c: &mut Criterion) {
     file.read_to_string(&mut contents).unwrap();
 
     c.bench_function("raw iteration", |b| {
-        b.iter(|| for c in contents.chars() {
-            black_box(c.is_ascii());
+        b.iter(|| {
+            for c in contents.chars() {
+                black_box(c.is_ascii());
+            }
         });
     });
 }
@@ -109,11 +111,12 @@ fn bench_sqlite3(c: &mut Criterion) {
             count = 0;
 
             while let Some(t) = lexer.next() {
-            match t {
-                Next::Token(_, _, _) => count += 1,
-                Next::Error(_, _) => {}
+                match t {
+                    Next::Token(_, _, _) => count += 1,
+                    Next::Error(_, _) => {}
+                }
             }
-        }})
+        })
     });
     println!("{}", count);
 }
@@ -132,11 +135,12 @@ fn bench_gzip(c: &mut Criterion) {
             count = 0;
 
             while let Some(t) = lexer.next() {
-            match t {
-                Next::Token(_, _, _) => count += 1,
-                Next::Error(_, _) => {}
-            };
-        }});
+                match t {
+                    Next::Token(_, _, _) => count += 1,
+                    Next::Error(_, _) => {}
+                };
+            }
+        });
     });
     println!("{}", count);
 }
@@ -163,11 +167,12 @@ fn bench_kjv(c: &mut Criterion) {
             count = 0;
 
             while let Some(t) = lexer.next() {
-            match t {
-                Next::Token(_, _, _) => count += 1,
-                Next::Error(_, _) => {}
-            };
-        }});
+                match t {
+                    Next::Token(_, _, _) => count += 1,
+                    Next::Error(_, _) => {}
+                };
+            }
+        });
     });
     println!("{}", count);
 }

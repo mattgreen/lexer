@@ -20,8 +20,9 @@ pub struct State {
 }
 
 #[derive(Clone, Debug)]
-pub enum Transition {
-    Ranges(Vec<CharRange>, StateID),
+pub struct Transition {
+    ranges: Vec<CharRange>,
+    to: StateID,
 }
 
 pub struct ExecutionState {
@@ -144,12 +145,8 @@ impl State {
 
     pub fn patch(&mut self, from: StateID, to: StateID) {
         for t in self.transitions.iter_mut() {
-            match t {
-                Transition::Ranges(_, target) => {
-                    if *target == from {
-                        *target = to;
-                    }
-                }
+            if t.to == from {
+                t.to = to;
             }
         }
 
@@ -164,12 +161,8 @@ impl State {
         self.transitions
             .iter()
             .filter_map(|t| {
-                match t {
-                    Transition::Ranges(r, to) => {
-                        if r.iter().any(|(l, h)| c >= *l && c <= *h) {
-                            return Some(*to);
-                        }
-                    }
+                if t.ranges.iter().any(|(l, h)| c >= *l && c <= *h) {
+                    return Some(t.to);
                 }
 
                 None
@@ -180,6 +173,9 @@ impl State {
 
 impl Transition {
     pub fn ranges(sets: &[CharRange], to: StateID) -> Transition {
-        Transition::Ranges(sets.to_owned(), to)
+        Transition {
+            ranges: sets.to_owned(),
+            to,
+        }
     }
 }

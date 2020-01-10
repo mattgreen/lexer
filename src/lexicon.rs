@@ -1,7 +1,7 @@
-use std::iter::FromIterator;
 use hashbrown::HashSet;
+use std::iter::FromIterator;
 
-use crate::nfa::{analyze, CompileError, NFA};
+use crate::nfa::{CompileError, NFA};
 
 pub struct Lexicon {
     pub(crate) ignore_chars: HashSet<char>,
@@ -48,10 +48,9 @@ impl LexiconBuilder {
         let mut rules = vec![];
         for (id, kind, pattern) in self.rules {
             let starting_chars = match kind {
-                RuleKind::Pattern => {
-                    let nfa = NFA::from_regex(&pattern).map_err(Error::InvalidRegex)?;
-                    analyze::starting_chars(&nfa)
-                },
+                RuleKind::Pattern => NFA::from_regex(&pattern)
+                    .map_err(Error::InvalidRegex)?
+                    .starting_chars(),
                 RuleKind::Literal => {
                     let c = pattern.chars().nth(0).ok_or(Error::EmptyLiteral(id))?;
                     HashSet::from_iter(std::iter::once(c))

@@ -102,7 +102,6 @@ impl<'input> Lexer<'input> {
         }
     }
 
-
     fn best_match(&self, matches: &[(usize, usize)]) -> Option<(RuleID, usize)> {
         if matches.is_empty() {
             return None;
@@ -141,7 +140,10 @@ impl<'input> Lexer<'input> {
             Some(indicies) => indicies,
             None => {
                 self.advance(c);
-                return Some(Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]), pos));
+                return Some(Next::Error(
+                    Error::UnexpectedChar(&input[0..c.len_utf8()]),
+                    pos,
+                ));
             }
         };
 
@@ -155,19 +157,22 @@ impl<'input> Lexer<'input> {
                     if c.len_utf8() == literal.len() || *literal == input[..literal.len()] {
                         self.matches.push((i, literal.len()));
                     }
-                },
+                }
                 Pattern::Regex(regex) => {
                     if let Some(m) = regex.find_at(input, 0) {
                         self.matches.push((i, m.end()));
                     }
-                },
+                }
             }
         }
 
         let best = self.best_match(&self.matches);
         if best.is_none() {
             self.advance(c);
-            return Some(Next::Error(Error::UnexpectedChar(&input[0..c.len_utf8()]), pos));
+            return Some(Next::Error(
+                Error::UnexpectedChar(&input[0..c.len_utf8()]),
+                pos,
+            ));
         }
 
         let (rule_id, len) = best.unwrap();
